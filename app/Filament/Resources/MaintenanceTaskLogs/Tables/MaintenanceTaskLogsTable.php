@@ -37,7 +37,7 @@ class MaintenanceTaskLogsTable
                     ->wrap(),
                 TextColumn::make('mtl_due_dt')
                     ->label('Due Date')
-                    ->dateTime('M d, Y | h:iA')
+                    ->dateTime('M d, Y | h:i A')
                     ->placeholder('—')
                     ->sortable(),
                 TextColumn::make('workOrder.wo_no')
@@ -60,7 +60,7 @@ class MaintenanceTaskLogsTable
                     ->sortable(),
                 TextColumn::make('mtl_dt')
                     ->label('Timestamp')
-                    ->dateTime('M d, Y | h:iA')
+                    ->dateTime('M d, Y | h:i A')
                     ->sortable(),
             ])
             ->filters([

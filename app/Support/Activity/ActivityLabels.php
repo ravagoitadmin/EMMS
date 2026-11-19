@@ -15,6 +15,7 @@ use App\Models\Location;
 use App\Models\Priority;
 use App\Models\Status;
 use App\Models\WorkOrder;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -319,6 +320,19 @@ class ActivityLabels
 
         if (is_array($value)) {
             $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        // A stored date and time (2026-11-10 17:30:00) reads like the rest of the app: Nov 10, 2026 05:30:00 PM.
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value) === 1) {
+            try {
+                $moment = Carbon::createFromFormat('Y-m-d H:i:s', $value);
+
+                if ($moment->format('Y-m-d H:i:s') === $value) {
+                    return $moment->format('M j, Y h:i:s A');
+                }
+            } catch (\Throwable) {
+                // Not a real date and time (for example 2026-13-45 99:99:99): show it as it is.
+            }
         }
 
         return Str::limit((string) $value, 80);

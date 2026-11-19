@@ -73,7 +73,7 @@ trait ManagesInspectionSync
 
         Notification::make()
             ->title('Schedule Updated')
-            ->body(ucfirst(static::syncSubject()).' will now sync daily at '.Carbon::parse($data['value'])->format('g:ia'))
+            ->body(ucfirst(static::syncSubject()).' will now sync daily at '.Carbon::parse($data['value'])->format('h:i A'))
             ->success()
             ->send();
     }
@@ -200,6 +200,6 @@ trait ManagesInspectionSync
 
     private function formatTime(?string $time): ?string
     {
-        return $time ? Carbon::parse($time)->format('g:i A') : null;
+        return $time ? Carbon::parse($time)->format('h:i A') : null;
     }
 }

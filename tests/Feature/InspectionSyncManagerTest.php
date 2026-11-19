@@ -298,8 +298,8 @@ class InspectionSyncManagerTest extends TestCase
 
         $change = Activity::query()->where('event', 'schedule_changed')->sole();
         $this->assertSame('Maintenance inspection sync', $change->getExtraProperty('task'));
-        $this->assertSame('1:00 AM', $change->getExtraProperty('from'));
-        $this->assertSame('3:30 AM', $change->getExtraProperty('to'));
+        $this->assertSame('01:00 AM', $change->getExtraProperty('from'));
+        $this->assertSame('03:30 AM', $change->getExtraProperty('to'));
     }
 
     public function test_saving_the_same_time_again_does_not_log_a_change(): void

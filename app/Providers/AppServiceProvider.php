@@ -12,7 +12,9 @@ use App\Support\Activity\ActivityLogging;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Models\Export as FilamentExport;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -30,6 +32,12 @@ use STS\FilamentImpersonate\ImpersonateManager;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /** How a date and time reads on screen: Nov 14, 2026 05:12:00 PM. */
+    public const DATE_TIME_FORMAT = 'M j, Y h:i:s A';
+
+    /** How a time reads on screen: 05:12:00 PM. */
+    public const TIME_FORMAT = 'h:i:s A';
+
     /**
      * Register any application services.
      */
@@ -73,6 +81,24 @@ class AppServiceProvider extends ServiceProvider
                 ->defaultPaginationPageOption(10)
                 ->stackedOnMobile()
                 ->poll('30s')
+                ->defaultDateTimeDisplayFormat(self::DATE_TIME_FORMAT)
+                ->defaultTimeDisplayFormat(self::TIME_FORMAT)
+        );
+
+        // Times everywhere read like 05:12:00 PM, not 17:12:00: table columns, view pages (infolists) and the
+        // pickers in forms. A column or field can still pass its own format.
+        Schema::configureUsing(
+            fn (Schema $schema) => $schema
+                ->defaultDateTimeDisplayFormat(self::DATE_TIME_FORMAT)
+                ->defaultTimeDisplayFormat(self::TIME_FORMAT)
+        );
+
+        DateTimePicker::configureUsing(
+            fn (DateTimePicker $picker) => $picker
+                ->defaultDateTimeDisplayFormat('M j, Y h:i A')
+                ->defaultDateTimeWithSecondsDisplayFormat(self::DATE_TIME_FORMAT)
+                ->defaultTimeDisplayFormat('h:i A')
+                ->defaultTimeWithSecondsDisplayFormat(self::TIME_FORMAT)
         );
 
         // Every table column shows — when empty, and long text is cut to 50 characters
