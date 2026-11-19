@@ -6,6 +6,7 @@ use App\Jobs\ProcessRfidRawLogs;
 use App\Models\Location;
 use App\Models\RfidRawLog;
 use App\Services\Rfid\RawLogProcessor;
+use App\Services\Rfid\RecordedReadTimes;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -173,14 +174,13 @@ class ImportSheetRfidRawLogs extends Command
             }
         }
 
-        $recorded = $this->alreadyRecorded(array_values(array_unique(array_column(array_column($candidates, 'asset'), 'id'))));
+        $times = app(RecordedReadTimes::class);
+        $recorded = $times->forAssets(array_values(array_unique(array_column(array_column($candidates, 'asset'), 'id'))));
         $window = (int) config('rfid.movement_window_seconds');
         $reads = [];
 
         foreach ($candidates as ['asset' => $asset, 'status' => $status, 'time' => $time]) {
-            $at = strtotime($time);
-
-            if (collect($recorded[$asset['id']][$status] ?? [])->contains(fn (int $other): bool => abs($other - $at) <= $window)) {
+            if ($times->hasNear($recorded[$asset['id']] ?? [], $status, strtotime($time), $window)) {
                 $counts['already recorded']++;
 
                 continue;
@@ -271,37 +271,6 @@ class ImportSheetRfidRawLogs extends Command
         }
 
         return array_filter($byCode + $byName);
-    }
-
-    /**
-     * Times the given equipment already has, per status: its scans (any tag) and its trips.
-     *
-     * @param  list<int>  $assetIds
-     * @return array<int, array{OUT?: list<int>, IN?: list<int>}>
-     */
-    private function alreadyRecorded(array $assetIds): array
-    {
-        $recorded = [];
-
-        foreach (array_chunk($assetIds, 500) as $chunk) {
-            $tagOwner = DB::table('asset_tags')->whereIn('asset_parent_id', $chunk)->pluck('asset_parent_id', 'tag_id');
-
-            foreach (array_chunk($tagOwner->keys()->all(), 500) as $tagChunk) {
-                foreach (DB::table('asset_tag_logs')->whereIn('tag_id', $tagChunk)->get(['tag_id', 'status', 'detected_at']) as $scan) {
-                    $recorded[$tagOwner[$scan->tag_id]][strtoupper($scan->status)][] = strtotime($scan->detected_at);
-                }
-            }
-
-            foreach (DB::table('asset_movements')->whereIn('asset_id', $chunk)->whereNull('disregarded_at')->get(['asset_id', 'time_out', 'time_in']) as $trip) {
-                foreach (['OUT' => $trip->time_out, 'IN' => $trip->time_in] as $status => $time) {
-                    if ($time !== null) {
-                        $recorded[$trip->asset_id][$status][] = strtotime($time);
-                    }
-                }
-            }
-        }
-
-        return $recorded;
     }
 
     /**
