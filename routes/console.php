@@ -46,6 +46,14 @@ Schedule::command(SyncInspections::class, ['--only' => InspectionSyncRunner::AIM
     ->dailyAt(InspectionSyncSettings::time(InspectionSyncRunner::AIMS))
     ->withoutOverlapping();
 
+// Keep the values of the "equipments" tab of the AppSheet spreadsheet up to date from EMS (existing rows only).
+// Off until EQUIPMENT_SHEET_SYNC_ENABLED=true; EQUIPMENT_SHEET_SYNC_MINUTES sets how often (5 to 60, default 15).
+Schedule::command('equipments:sync-sheet', ['--execute'])
+    ->cron('*/'.config('services.google.equipment_sheet.every_minutes').' * * * *')
+    ->when(fn (): bool => (bool) config('services.google.equipment_sheet.enabled'))
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Log retention: once a day, delete log rows older than config('log_retention.days') days (default 30).
 // Only these tables are pruned (the activity log, which also holds the inspection sync history,
 // the maintenance and AIMS inspection logs, and the raw RFID reader log and scanner status history, which keep their own
