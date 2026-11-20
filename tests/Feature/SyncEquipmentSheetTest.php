@@ -67,19 +67,52 @@ class SyncEquipmentSheetTest extends AssetMovementTestCase
             ->assertSuccessful();
     }
 
-    public function test_rows_are_never_added_and_rows_ems_does_not_know_are_left_alone(): void
+    public function test_units_that_are_not_in_the_sheet_are_added_below_the_last_row_and_unknown_sheet_rows_are_left_alone(): void
     {
-        $this->unit(['eqm_name' => 'Not in the sheet', 'eqm_prc_code' => 'NIS']);
         $known = $this->unit(['eqm_name' => 'Crane 3', 'eqm_prc_code' => 'CR3', 'eqm_is_active' => true]);
+        $missing = $this->unit(['eqm_name' => 'Not in the sheet', 'eqm_prc_code' => 'NIS', 'eqm_is_active' => false]);
         $this->sheetHas([
             ['99999', '', 'RAVAGO RENTALS', '1010', '0'],
             [(string) $known->eqm_id, (string) $known->asset_type_id, 'Crane 3', 'CR3', '1'],
         ]);
         $this->sheet->shouldNotReceive('writeCells');
+        $this->sheet->shouldReceive('appendRows')->once()->with('equipments', 4, [
+            [$missing->eqm_id, (int) $missing->asset_type_id, 'Not in the sheet', 'NIS', 0],
+        ]);
 
         $this->artisan('equipments:sync-sheet', ['--execute' => true])
-            ->expectsOutputToContain('Updated 0 cell(s)')
+            ->expectsOutputToContain('added 1 row(s)')
             ->assertSuccessful();
+    }
+
+    public function test_a_new_row_follows_the_column_order_of_the_sheet_and_leaves_an_unlisted_type_empty(): void
+    {
+        $missing = $this->unit(['eqm_name' => 'Crane 7', 'eqm_prc_code' => 'CR7', 'eqm_is_active' => true]);
+        $other = (int) $missing->asset_type_id === 1 ? 2 : 1;
+        $known = $this->unit(['eqm_name' => 'Known', 'eqm_prc_code' => 'KN7', 'eqm_is_active' => true]);
+        $this->sheetHas([['Known', '', 'KN7', '1', (string) $known->eqm_id]], ['eqm_name', 'asset_type_id', 'eqm_prc_code', 'eqm_is_active', 'eqm_id'], types: [$other]);
+        $this->sheet->shouldReceive('writeCells')->never();
+        $this->sheet->shouldReceive('appendRows')->once()->with('equipments', 3, [
+            ['Crane 7', '', 'CR7', 1, $missing->eqm_id],
+        ]);
+
+        $this->artisan('equipments:sync-sheet', ['--execute' => true])->assertSuccessful();
+    }
+
+    public function test_the_preview_adds_nothing_and_the_rows_count_toward_the_safety_limit(): void
+    {
+        $known = $this->unit(['eqm_name' => 'Known', 'eqm_prc_code' => 'KN8', 'eqm_is_active' => true]);
+        $this->unit(['eqm_name' => 'Crane 8', 'eqm_prc_code' => 'CR8']);
+        $this->sheetHas([[(string) $known->eqm_id, (string) $known->asset_type_id, 'Known', 'KN8', '1']]);
+        $this->sheet->shouldNotReceive('writeCells');
+        $this->sheet->shouldNotReceive('appendRows');
+
+        $this->artisan('equipments:sync-sheet')->expectsOutputToContain('Preview only')->assertSuccessful();
+
+        $this->sheet->shouldNotReceive('appendRows');
+        $this->artisan('equipments:sync-sheet', ['--execute' => true, '--max-cells' => 4])
+            ->expectsOutputToContain('Nothing was written')
+            ->assertFailed();
     }
 
     public function test_an_empty_value_in_ems_never_blanks_a_cell_in_the_sheet(): void

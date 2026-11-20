@@ -51,6 +51,29 @@ class GoogleSheetWriter
         }
     }
 
+    /**
+     * Adds rows below the last used row ($firstFreeRow is the row after it), written as typed (RAW). The rows
+     * below that row must be empty; nothing that is already in the sheet is moved or overwritten.
+     *
+     * @param  list<list<string|int|float>>  $rows
+     */
+    public function appendRows(string $tab, int $firstFreeRow, array $rows): void
+    {
+        foreach (array_chunk($rows, self::BATCH) as $chunk) {
+            $range = new ValueRange;
+            $range->setValues($chunk);
+
+            $this->service()->spreadsheets_values->append(
+                $this->spreadsheetId(),
+                $this->range($tab, 'A'.$firstFreeRow),
+                $range,
+                ['valueInputOption' => 'RAW', 'insertDataOption' => 'INSERT_ROWS'],
+            );
+
+            $firstFreeRow += count($chunk);
+        }
+    }
+
     private function range(string $tab, string $cells): string
     {
         return "'".str_replace("'", "''", $tab)."'!".$cells;

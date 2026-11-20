@@ -8,10 +8,11 @@ use RuntimeException;
 /**
  * Brings the values of the "equipments" tab of the AppSheet spreadsheet up to date with the equipment in EMS.
  *
- * Only values of rows that are already in the sheet are changed, matched by eqm_id, and only in the columns
- * asset_type_id, eqm_name, eqm_prc_code and eqm_is_active. Rows are never added, moved or deleted, a sheet row EMS
- * does not know is left alone, and an empty value in EMS never blanks a cell in the sheet. An asset_type_id is only
- * written when the sheet's asset_types tab lists that id (it is a reference to that tab).
+ * After a run the sheet has every unit of equipment_units: rows are matched by eqm_id, the values of rows that are
+ * already there are updated (asset_type_id, eqm_name, eqm_prc_code, eqm_is_active; eqm_id never), and units that are
+ * not there yet are added below the last row. Rows are never moved or deleted, a sheet row EMS does not know is left
+ * alone, and an empty value in EMS never blanks a cell in the sheet. An asset_type_id is only written when the
+ * sheet's asset_types tab lists that id (it is a reference to that tab).
  */
 class EquipmentSheetSync
 {
@@ -27,7 +28,9 @@ class EquipmentSheetSync
      *
      * @return array{
      *     cells: list<array{cell: string, value: string|int, row: int, id: int, column: string, from: string, to: string}>,
-     *     counts: array{sheet_rows: int, matched: int, unchanged: int, rows_to_update: int, cells_to_update: int, not_in_ems: int, not_in_sheet: int, duplicate_ids: int},
+     *     counts: array{sheet_rows: int, matched: int, unchanged: int, rows_to_update: int, cells_to_update: int, not_in_ems: int, rows_to_add: int, cells_to_add: int, duplicate_ids: int},
+     *     new_rows: list<list<string|int>>,
+     *     first_free_row: int,
      *     unknown_types: list<int>
      * }
      */
@@ -114,6 +117,8 @@ class EquipmentSheetSync
             }
         }
 
+        $newRows = $this->newRows(array_keys($sheetRows), $columns, $types);
+
         return [
             'cells' => $cells,
             'counts' => [
@@ -123,27 +128,71 @@ class EquipmentSheetSync
                 'rows_to_update' => count($changedRows),
                 'cells_to_update' => count($cells),
                 'not_in_ems' => $notInEms,
-                'not_in_sheet' => max(0, DB::table('equipment_units')->count() - $matched),
+                'rows_to_add' => count($newRows),
+                'cells_to_add' => count($newRows) * (count(self::VALUE_COLUMNS) + 1),
                 'duplicate_ids' => $duplicates,
             ],
+            'new_rows' => $newRows,
+            'first_free_row' => count($values) + 1,
             'unknown_types' => array_keys($unknownTypes),
         ];
     }
 
     /**
-     * Writes the cells of a plan.
+     * Writes the updated cells and adds the new rows of a plan.
      *
-     * @param  array{cells: list<array{cell: string, value: string|int}>}  $plan
+     * @param  array{cells: list<array{cell: string, value: string|int}>, new_rows: list<list<string|int>>, first_free_row: int}  $plan
+     * @return array{updated: int, added: int}
      */
-    public function apply(array $plan): int
+    public function apply(array $plan): array
     {
-        if ($plan['cells'] === []) {
-            return 0;
+        if ($plan['cells'] !== []) {
+            $this->sheet->writeCells($this->tab(), array_map(fn (array $cell): array => ['cell' => $cell['cell'], 'value' => $cell['value']], $plan['cells']));
         }
 
-        $this->sheet->writeCells($this->tab(), array_map(fn (array $cell): array => ['cell' => $cell['cell'], 'value' => $cell['value']], $plan['cells']));
+        if ($plan['new_rows'] !== []) {
+            $this->sheet->appendRows($this->tab(), $plan['first_free_row'], $plan['new_rows']);
+        }
 
-        return count($plan['cells']);
+        return ['updated' => count($plan['cells']), 'added' => count($plan['new_rows'])];
+    }
+
+    /**
+     * The units that are not in the sheet yet, as rows laid out like the sheet's columns, in eqm_id order.
+     *
+     * @param  list<int>  $idsInSheet
+     * @param  array<string, int>  $columns
+     * @param  array<int, true>  $types
+     * @return list<list<string|int>>
+     */
+    private function newRows(array $idsInSheet, array $columns, array $types): array
+    {
+        $inSheet = array_flip($idsInSheet);
+        $width = max($columns) + 1;
+        $rows = [];
+
+        foreach (DB::table('equipment_units')->orderBy('eqm_id')->get(['eqm_id', ...self::VALUE_COLUMNS]) as $unit) {
+            if (isset($inSheet[(int) $unit->eqm_id])) {
+                continue;
+            }
+
+            $row = array_fill(0, $width, '');
+            $row[$columns[self::ID_COLUMN]] = (int) $unit->eqm_id;
+
+            foreach (self::VALUE_COLUMNS as $column) {
+                $wanted = $this->wanted($column, $unit->{$column});
+
+                if ($column === 'asset_type_id' && ($wanted === null || ! isset($types[(int) $wanted]))) {
+                    $wanted = null;
+                }
+
+                $row[$columns[$column]] = $wanted ?? '';
+            }
+
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 
     private function tab(): string

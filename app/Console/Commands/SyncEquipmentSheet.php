@@ -16,7 +16,7 @@ class SyncEquipmentSheet extends Command
         {--execute : Really update the sheet; without it the command only shows what would change}
         {--max-cells=10000 : Stop without writing when more cells than this would change (a safety limit)}';
 
-    protected $description = 'Update the values of the "equipments" sheet (existing rows only) from the equipment in EMS';
+    protected $description = 'Make the "equipments" sheet match the equipment in EMS: update the values of its rows and add the units it does not have yet';
 
     public function handle(EquipmentSheetSync $sync): int
     {
@@ -38,7 +38,7 @@ class SyncEquipmentSheet extends Command
             ['  to update', $counts['rows_to_update']],
             ['Cells to update', $counts['cells_to_update']],
             ['Sheet rows EMS does not know (left alone)', $counts['not_in_ems']],
-            ['EMS equipment not in the sheet (not added)', $counts['not_in_sheet']],
+            ['EMS equipment not in the sheet yet (rows to add)', $counts['rows_to_add']],
             ['eqm_id listed twice in the sheet (both updated)', $counts['duplicate_ids']],
         ]);
 
@@ -63,8 +63,10 @@ class SyncEquipmentSheet extends Command
             return self::SUCCESS;
         }
 
-        if ($counts['cells_to_update'] > (int) $this->option('max-cells')) {
-            $this->error("{$counts['cells_to_update']} cells would change, more than --max-cells={$this->option('max-cells')}. Nothing was written. Check the preview, then raise --max-cells if it is right.");
+        $cells = $counts['cells_to_update'] + $counts['cells_to_add'];
+
+        if ($cells > (int) $this->option('max-cells')) {
+            $this->error("{$cells} cells would change, more than --max-cells={$this->option('max-cells')}. Nothing was written. Check the preview, then raise --max-cells if it is right.");
 
             return self::FAILURE;
         }
@@ -78,14 +80,16 @@ class SyncEquipmentSheet extends Command
             return self::FAILURE;
         }
 
-        if ($written > 0) {
+        $message = "Updated {$written['updated']} cell(s) in {$counts['rows_to_update']} row(s) and added {$written['added']} row(s) in the equipments sheet";
+
+        if ($written['updated'] + $written['added'] > 0) {
             activity('Sync')
                 ->event('updated')
-                ->withProperties(['cells' => $written, 'rows' => $counts['rows_to_update']])
-                ->log("Updated {$written} cell(s) in {$counts['rows_to_update']} row(s) of the equipments sheet");
+                ->withProperties(['cells' => $written['updated'], 'rows' => $counts['rows_to_update'], 'rows_added' => $written['added']])
+                ->log($message);
         }
 
-        $this->info("Updated {$written} cell(s) in {$counts['rows_to_update']} row(s) of the equipments sheet.");
+        $this->info($message.'.');
 
         return self::SUCCESS;
     }
