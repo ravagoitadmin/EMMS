@@ -39,6 +39,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Livewire\Livewire;
 use SolutionForest\FilamentSimpleLightBox\SimpleLightBoxPlugin;
 
 class AdminPanelProvider extends PanelProvider
@@ -146,7 +147,9 @@ class AdminPanelProvider extends PanelProvider
                     ? Storage::disk('public')->url($logo)
                     : null;
             })
-            ->brandLogoHeight(request()->is('login') ? '8rem' : '3rem')
+            // Bigger on the sign-in page. Worked out when the logo is drawn, from the page's own address: after a failed
+            // sign-in the page is redrawn through a Livewire update request, whose URL is not /login.
+            ->brandLogoHeight(fn (): string => self::isLoginPage() ? '8rem' : '3rem')
             ->favicon(function () {
                 try {
                     $favicon = SiteSetting::instance()->site_favicon;
@@ -280,5 +283,14 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
                 TrackUserActivity::class,
             ], isPersistent: true);
+    }
+
+    /**
+     * Whether the page being drawn is the sign-in page, also when it is redrawn by a Livewire update request.
+     */
+    public static function isLoginPage(): bool
+    {
+        // For a Livewire update request this is the address of the page it came from, otherwise the request's own.
+        return trim((string) Livewire::originalPath(), '/') === 'login';
     }
 }
