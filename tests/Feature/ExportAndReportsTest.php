@@ -301,15 +301,15 @@ class ExportAndReportsTest extends TestCase
 
         // Equipment and service vehicles are deployed; accessories are allocated instead.
         $this->assertSame(
-            ['all' => 'All 4', 'deployed' => 'Deployed 2', 'idle' => 'Idle 0', 'under_maintenance' => 'Under Maintenance 1', 'retired' => 'Retired 1', 'disposed' => 'Disposed 0'],
+            ['all' => 'All 4', 'deployed' => 'Deployed 2', 'idle' => 'Available 0', 'under_maintenance' => 'Under Maintenance 1', 'retired' => 'Retired 1', 'disposed' => 'Disposed 0'],
             $tabs('equipment'),
         );
         $this->assertSame(
-            ['all' => 'All 4', 'allocated' => 'Allocated 1', 'idle' => 'Idle 1', 'under_maintenance' => 'Under Maintenance 0', 'retired' => 'Retired 1', 'disposed' => 'Disposed 1'],
+            ['all' => 'All 4', 'allocated' => 'Allocated 1', 'idle' => 'Available 1', 'under_maintenance' => 'Under Maintenance 0', 'retired' => 'Retired 1', 'disposed' => 'Disposed 1'],
             $tabs('accessories'),
         );
         $this->assertSame(
-            ['all' => 'All 1', 'deployed' => 'Deployed 1', 'idle' => 'Idle 0', 'under_maintenance' => 'Under Maintenance 0', 'retired' => 'Retired 0', 'disposed' => 'Disposed 0'],
+            ['all' => 'All 1', 'deployed' => 'Deployed 1', 'idle' => 'Available 0', 'under_maintenance' => 'Under Maintenance 0', 'retired' => 'Retired 0', 'disposed' => 'Disposed 0'],
             $tabs('service-vehicles'),
         );
     }

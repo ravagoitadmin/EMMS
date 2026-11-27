@@ -70,6 +70,23 @@ class LifecycleStatusColorsTest extends TestCase
         $this->assertSame('heroicon-o-archive-box-x-mark', DB::table('actions')->where('a_id', 'dispose')->value('a_icon'));
     }
 
+    public function test_idle_is_renamed_available_and_keeps_its_ids(): void
+    {
+        DB::table('actions')->insert(['a_id' => 'sidle', 'a_present_tense' => 'Set to Idle', 'a_past_tense' => 'Set to Idle', 'a_icon' => 'heroicon-o-pause-circle']);
+        $rename = require base_path('database/migrations/2026_11_27_154507_rename_idle_lifecycle_status_to_available.php');
+
+        $rename->up();
+
+        $this->assertSame('Available', DB::table('statuses')->where('status_id', 'idle')->value('status_title'));
+        $this->assertSame(['Set to Available', 'Set to Available'], array_values((array) DB::table('actions')->where('a_id', 'sidle')->first(['a_present_tense', 'a_past_tense'])));
+        $this->assertSame('Deployed', DB::table('statuses')->where('status_id', 'dep')->value('status_title'));
+
+        $rename->down();
+
+        $this->assertSame('Idle', DB::table('statuses')->where('status_id', 'idle')->value('status_title'));
+        $this->assertSame('Set to Idle', DB::table('actions')->where('a_id', 'sidle')->value('a_present_tense'));
+    }
+
     public function test_rolling_back_restores_the_previous_colors_and_icons(): void
     {
         $before = DB::table('statuses')->orderBy('status_id')->get()->toArray();

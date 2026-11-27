@@ -86,7 +86,7 @@ class ListEquipment extends ListRecords
         ];
 
         foreach ($this->lifecycleTabs() as $status) {
-            $tabs[str($status->name)->snake()->toString()] = Tab::make($titles[$status->value] ?? str($status->name)->headline()->toString())
+            $tabs[str($status->name)->snake()->toString()] = Tab::make($titles[$status->value] ?? $status->label())
                 ->badge(fn () => $this->tabCounts()[$status->value] ?? 0)
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('lifecycle_status_id', $status->value));
         }

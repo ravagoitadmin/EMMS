@@ -186,7 +186,7 @@ class AccessoriesRelationManager extends RelationManager
     }
 
     /**
-     * An unallocated accessory becomes Idle and needs a location of its own again,
+     * An unallocated accessory becomes Available (status id idle) and needs a location of its own again,
      * so it stays where its parent equipment is until someone moves it.
      */
     protected function unallocate(Model $record, Table $table): void

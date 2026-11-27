@@ -32,6 +32,22 @@ enum LifecycleStatus: string
         };
     }
 
+    /**
+     * The name shown when the statuses table has no title for it (the table's status_title is used first).
+     * Idle is shown as "Available"; its id stays 'idle'.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Deployed => 'Deployed',
+            self::Allocated => 'Allocated',
+            self::Idle => 'Available',
+            self::UnderMaintenance => 'Under Maintenance',
+            self::Retired => 'Retired',
+            self::Disposed => 'Disposed',
+        };
+    }
+
     public function isOutOfService(): bool
     {
         return in_array($this, [self::Retired, self::Disposed], true);

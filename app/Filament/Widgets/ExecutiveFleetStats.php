@@ -58,7 +58,7 @@ class ExecutiveFleetStats extends StatsOverviewWidget
                 ->icon(Heroicon::WrenchScrewdriver)
                 ->description($share((int) ($row->maintenance ?? 0)))
                 ->color('warning'),
-            Stat::make('Idle', (int) ($row->idle ?? 0))
+            Stat::make('Available', (int) ($row->idle ?? 0))
                 ->icon(Heroicon::PauseCircle)
                 ->description($share((int) ($row->idle ?? 0)))
                 ->color('success'),

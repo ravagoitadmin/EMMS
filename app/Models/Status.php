@@ -25,7 +25,7 @@ class Status extends Model
     public $timestamps = false;
 
     /**
-     * The lifecycle statuses of assets (Deployed, Allocated, Idle, Under Maintenance, Retired, Disposed) as
+     * The lifecycle statuses of assets (Deployed, Allocated, Available, Under Maintenance, Retired, Disposed) as
      * status_id => title, in the order of the enum. The statuses table also holds work order and maintenance statuses.
      *
      * @return array<string, string>
