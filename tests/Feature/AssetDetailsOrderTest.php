@@ -29,9 +29,9 @@ class AssetDetailsOrderTest extends TestCase
             ->all();
 
         $this->assertSame([
-            ['Asset Code', 'Asset Name', 'Status', 'Lifecycle Status', 'Asset Type', 'Equipment Type', 'Brand'],
+            ['Asset Code', 'Asset Name', 'Lifecycle Status', 'Asset Type', 'Equipment Type', 'Brand', 'Model'],
             // "Allocated to" shows for accessories only: the equipment it belongs to, where its location comes from.
-            ['Model', 'Year Model', 'Date Purchased', 'Plate Number', 'Chassis #', 'Location', 'Allocated to', 'Tags'],
+            ['Year Model', 'Date Purchased', 'Plate Number', 'Chassis #', 'Location', 'Allocated to', 'Tags'],
         ], $columns);
     }
 }

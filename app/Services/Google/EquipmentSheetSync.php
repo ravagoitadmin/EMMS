@@ -9,7 +9,7 @@ use RuntimeException;
  * Brings the values of the "equipments" tab of the AppSheet spreadsheet up to date with the equipment in EMS.
  *
  * After a run the sheet has every unit of equipment_units: rows are matched by eqm_id, the values of rows that are
- * already there are updated (asset_type_id, eqm_name, eqm_prc_code, eqm_is_active; eqm_id never), and units that are
+ * already there are updated (asset_type_id, eqm_name, eqm_prc_code, lifecycle_status_id; eqm_id never), and units that are
  * not there yet are added below the last row. Rows are never moved or deleted, a sheet row EMS does not know is left
  * alone, and an empty value in EMS never blanks a cell in the sheet. An asset_type_id is only written when the
  * sheet's asset_types tab lists that id (it is a reference to that tab).
@@ -19,7 +19,7 @@ class EquipmentSheetSync
     public const ID_COLUMN = 'eqm_id';
 
     /** @var list<string> the columns that follow EMS */
-    public const VALUE_COLUMNS = ['asset_type_id', 'eqm_name', 'eqm_prc_code', 'eqm_is_active'];
+    public const VALUE_COLUMNS = ['asset_type_id', 'eqm_name', 'eqm_prc_code', 'lifecycle_status_id'];
 
     public function __construct(private readonly GoogleSheetWriter $sheet) {}
 
@@ -99,7 +99,7 @@ class EquipmentSheetSync
 
                     $current = trim((string) ($row[$columns[$column]] ?? ''));
 
-                    if ($this->same($column, $current, (string) $wanted)) {
+                    if ($this->same($current, (string) $wanted)) {
                         continue;
                     }
 
@@ -271,10 +271,6 @@ class EquipmentSheetSync
      */
     private function wanted(string $column, mixed $value): string|int|null
     {
-        if ($column === 'eqm_is_active') {
-            return $value === null ? null : (int) (bool) $value;
-        }
-
         $value = trim((string) $value);
 
         if ($value === '') {
@@ -284,19 +280,9 @@ class EquipmentSheetSync
         return $column === 'asset_type_id' ? (int) $value : $value;
     }
 
-    private function same(string $column, string $current, string $wanted): bool
+    private function same(string $current, string $wanted): bool
     {
-        if ($column === 'eqm_is_active') {
-            return $this->flag($current) === $this->flag($wanted);
-        }
-
         return $current === $wanted;
-    }
-
-    /** The sheet may show an active flag as 1/0 or TRUE/FALSE. */
-    private function flag(string $value): string
-    {
-        return in_array(strtolower($value), ['1', 'true', 'yes'], true) ? '1' : '0';
     }
 
     /** 0 => A, 25 => Z, 26 => AA */

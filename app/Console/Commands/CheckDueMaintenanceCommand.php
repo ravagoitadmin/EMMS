@@ -18,8 +18,8 @@ class CheckDueMaintenanceCommand extends Command
      * @var string
      */
     protected $signature = 'maintenance:check-due';
-    protected $description = 'Check for equipment due for preventive maintenance and notify PREV department managers';
 
+    protected $description = 'Check for equipment due for preventive maintenance and notify PREV department managers';
 
     /**
      * The console command description.
@@ -36,11 +36,11 @@ class CheckDueMaintenanceCommand extends Command
             // Fetch PREV department managers ONCE
             $prevManagers = AppUser::whereHas(
                 'roles',
-                fn($q) => $q->where('name', 'manager')
+                fn ($q) => $q->where('name', 'manager')
             )
                 ->whereHas(
                     'department',
-                    fn($q) => $q->where('dep_code', 'PREV')
+                    fn ($q) => $q->where('dep_code', 'PREV')
                 )
                 ->where('is_active', true)
                 ->get();
@@ -49,14 +49,14 @@ class CheckDueMaintenanceCommand extends Command
                 $this->warn('❌ No managers found in PREV department');
                 Log::warning('CheckDueMaintenanceCommand: No managers found in PREV department');
                 ActivityLogging::scheduled('Maintenance due check', 'Maintenance due check could not run: no active PREV department managers found');
+
                 return self::FAILURE;
             }
 
-            $this->info('ℹ️ Found ' . $prevManagers->count() . ' manager(s) in PREV department');
-
+            $this->info('ℹ️ Found '.$prevManagers->count().' manager(s) in PREV department');
 
             // Get equipment due for maintenance
-            $dueEquipment = Equipment::where('eqm_is_active', true)
+            $dueEquipment = Equipment::inService()
                 ->whereNotNull('eqm_next_pm_due_at')
                 ->where('eqm_next_pm_due_at', '<=', now())
                 ->where(function ($query) {
@@ -66,15 +66,15 @@ class CheckDueMaintenanceCommand extends Command
                 ->with(['type', 'equipmentModel'])  // ✅ Direct relationships
                 ->get();
 
-
             if ($dueEquipment->isEmpty()) {
                 $this->info('ℹ️ No equipment due for maintenance');
                 Log::info('CheckDueMaintenanceCommand: No equipment due for maintenance');
                 ActivityLogging::scheduled('Maintenance due check', 'Maintenance due check: no equipment due for maintenance', ['notified' => 0]);
+
                 return self::SUCCESS;
             }
 
-            $this->info('ℹ️ Found ' . $dueEquipment->count() . ' equipment due for maintenance');
+            $this->info('ℹ️ Found '.$dueEquipment->count().' equipment due for maintenance');
 
             // Get manager emails (filter out null emails)
             $managerEmails = $prevManagers
@@ -85,6 +85,7 @@ class CheckDueMaintenanceCommand extends Command
             if (empty($managerEmails)) {
                 $this->warn('❌ No valid email addresses found for managers');
                 Log::warning('CheckDueMaintenanceCommand: No valid manager emails found');
+
                 return self::FAILURE;
             }
 
@@ -116,15 +117,17 @@ class CheckDueMaintenanceCommand extends Command
                 "Maintenance due check: notified managers about {$notified} of {$dueEquipment->count()} equipment due for maintenance",
                 ['notified' => $notified, 'due' => $dueEquipment->count()],
             );
+
             return self::SUCCESS;
         } catch (\Exception $e) {
-            $this->error('✗ Command failed: ' . $e->getMessage());
-            ActivityLogging::scheduled('Maintenance due check', 'Maintenance due check failed: ' . $e->getMessage());
+            $this->error('✗ Command failed: '.$e->getMessage());
+            ActivityLogging::scheduled('Maintenance due check', 'Maintenance due check failed: '.$e->getMessage());
             Log::error('CheckDueMaintenanceCommand: Command failed', [
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
             ]);
+
             return self::FAILURE;
         }
     }

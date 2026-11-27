@@ -82,7 +82,6 @@ class ClosedInspectionScreensTest extends TestCase
             $table->unsignedBigInteger('parent_id')->nullable();
             $table->string('eqm_name')->nullable();
             $table->string('eqm_prc_code')->nullable();
-            $table->boolean('eqm_is_active')->default(true);
         });
 
         (require base_path('database/migrations/2026_10_19_162850_create_maintenance_and_aims_inspection_tables.php'))->up();

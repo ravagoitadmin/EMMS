@@ -126,7 +126,6 @@ class ImportAccessories extends Command
                 'eqm_prc_code' => $accessory['code'],
                 'eqm_name' => mb_substr($accessory['name'], 0, 255),
                 'asset_type_id' => $accessoryTypeId,
-                'eqm_is_active' => true,
             ])->getKey(),
         ] + $accessory)->all());
 

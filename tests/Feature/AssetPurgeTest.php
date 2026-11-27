@@ -37,7 +37,7 @@ class AssetPurgeTest extends TestCase
             $table->string('eqm_name')->nullable();
             $table->unsignedBigInteger('asset_type_id')->nullable();
             $table->unsignedBigInteger('parent_id')->nullable();
-            $table->boolean('eqm_is_active')->default(true);
+            $table->string('lifecycle_status_id')->nullable();
         });
 
         $tables = [

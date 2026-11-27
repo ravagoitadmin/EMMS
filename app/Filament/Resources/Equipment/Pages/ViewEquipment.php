@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Equipment\Pages;
 
+use App\Enums\LifecycleStatus;
 use App\Filament\Concerns\HasDetailsTab;
 use App\Filament\Concerns\HasRecordNavigation;
 use App\Filament\Resources\Equipment\EquipmentResource;
@@ -56,11 +57,14 @@ class ViewEquipment extends ViewRecord
 
         $headerActions = [];
 
-        if ($record->eqm_is_active) {
-            $allocateActionModel = ModelsAction::where('a_id', 'alc')->firstOrFail();
-            $deployActionModel = ModelsAction::where('a_id', 'dep')->firstOrFail();
-            $setIdleActionModel = ModelsAction::where('a_id', 'sidle')->firstOrFail();
-            $setUnderMaintenanceActionModel = ModelsAction::where('a_id', 'smt')->firstOrFail();
+        // A Disposed asset is final: it keeps its history but gets no lifecycle actions. A Retired one can be put back in service.
+        if (! $record->isDisposed()) {
+            $allocateActionModel = ModelsAction::where('a_id', LifecycleStatus::Allocated->actionId())->firstOrFail();
+            $deployActionModel = ModelsAction::where('a_id', LifecycleStatus::Deployed->actionId())->firstOrFail();
+            $setIdleActionModel = ModelsAction::where('a_id', LifecycleStatus::Idle->actionId())->firstOrFail();
+            $setUnderMaintenanceActionModel = ModelsAction::where('a_id', LifecycleStatus::UnderMaintenance->actionId())->firstOrFail();
+            $retireActionModel = ModelsAction::where('a_id', LifecycleStatus::Retired->actionId())->firstOrFail();
+            $disposeActionModel = ModelsAction::where('a_id', LifecycleStatus::Disposed->actionId())->firstOrFail();
 
             $headerActions[] = ActionGroup::make([
                 Action::make('allocate')
@@ -75,7 +79,7 @@ class ViewEquipment extends ViewRecord
                     ->schema([
                         Select::make('allocate_to_equipment_id')
                             ->label('Allocate To Equipment')
-                            ->options(fn () => Equipment::where('asset_type_id', AssetType::equipmentId())->pluck('eqm_name', 'eqm_id'))
+                            ->options(fn () => Equipment::where('asset_type_id', AssetType::equipmentId())->inService()->pluck('eqm_name', 'eqm_id'))
                             ->searchable()
                             ->preload()
                             ->required(),
@@ -85,7 +89,7 @@ class ViewEquipment extends ViewRecord
                             ->rows(3)
                             ->columnSpanFull(),
                     ])
-                    ->action(fn (array $data) => $this->saveLifecycleTransition($allocateActionModel, 'alc', $data)),
+                    ->action(fn (array $data) => $this->saveLifecycleTransition($allocateActionModel, LifecycleStatus::Allocated->value, $data)),
 
                 Action::make('deploy')
                     ->label($deployActionModel->a_present_tense)
@@ -110,7 +114,7 @@ class ViewEquipment extends ViewRecord
                             ->rows(3)
                             ->columnSpanFull(),
                     ])
-                    ->action(fn (array $data) => $this->saveLifecycleTransition($deployActionModel, 'dep', $data)),
+                    ->action(fn (array $data) => $this->saveLifecycleTransition($deployActionModel, LifecycleStatus::Deployed->value, $data)),
 
                 Action::make('setToIdle')
                     ->label($setIdleActionModel->a_present_tense)
@@ -136,7 +140,7 @@ class ViewEquipment extends ViewRecord
                             ->rows(3)
                             ->columnSpanFull(),
                     ])
-                    ->action(fn (array $data) => $this->saveLifecycleTransition($setIdleActionModel, 'idle', $data)),
+                    ->action(fn (array $data) => $this->saveLifecycleTransition($setIdleActionModel, LifecycleStatus::Idle->value, $data)),
 
                 Action::make('setToMaintenance')
                     ->label($setUnderMaintenanceActionModel->a_present_tense)
@@ -162,7 +166,46 @@ class ViewEquipment extends ViewRecord
                             ->rows(3)
                             ->columnSpanFull(),
                     ])
-                    ->action(fn (array $data) => $this->saveLifecycleTransition($setUnderMaintenanceActionModel, 'udmt', $data)),
+                    ->action(fn (array $data) => $this->saveLifecycleTransition($setUnderMaintenanceActionModel, LifecycleStatus::UnderMaintenance->value, $data)),
+
+                Action::make('retire')
+                    ->label($retireActionModel->a_present_tense)
+                    ->icon($retireActionModel->a_icon)
+                    ->color('gray')
+                    ->visible(fn () => Auth::user()->can('retire', $record))
+                    ->modalHeading("Mark as {$retireActionModel->a_past_tense}")
+                    ->modalDescription('A retired asset gets no new work orders, trips or maintenance reminders. It can be put back in service later.')
+                    ->modalIcon($retireActionModel->a_icon)
+                    ->modalWidth('md')
+                    ->modalSubmitActionLabel('Retire')
+                    ->schema([
+                        Textarea::make('remarks')
+                            ->label('Remarks')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(fn (array $data) => $this->saveOutOfServiceTransition($retireActionModel, LifecycleStatus::Retired, $data)),
+
+                Action::make('dispose')
+                    ->label($disposeActionModel->a_present_tense)
+                    ->icon($disposeActionModel->a_icon)
+                    ->color('danger')
+                    ->visible(fn () => Auth::user()->can('dispose', $record))
+                    ->modalHeading("Mark as {$disposeActionModel->a_past_tense}")
+                    ->modalDescription('Use this when the asset is sold, scrapped or written off. This cannot be undone: a disposed asset keeps its history but gets no more actions.')
+                    ->modalIcon($disposeActionModel->a_icon)
+                    ->modalIconColor('danger')
+                    ->modalWidth('md')
+                    ->modalSubmitActionLabel('Dispose')
+                    ->schema([
+                        Textarea::make('remarks')
+                            ->label('Reason')
+                            ->helperText('For example: sold to …, scrapped, written off.')
+                            ->required()
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(fn (array $data) => $this->saveOutOfServiceTransition($disposeActionModel, LifecycleStatus::Disposed, $data)),
             ])
                 ->label('More actions')
                 ->button()
@@ -174,6 +217,32 @@ class ViewEquipment extends ViewRecord
         return $headerActions;
     }
 
+    /**
+     * Retire or dispose the asset. Equipment that still has accessories allocated to it is refused, so no accessory
+     * is left on an asset that is out of service.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function saveOutOfServiceTransition(ModelsAction $action, LifecycleStatus $status, array $data): void
+    {
+        $allocated = $this->record->accessories()->count();
+
+        if ($allocated > 0) {
+            Notification::make()
+                ->title('Unallocate its accessories first')
+                ->body("{$allocated} accessory(ies) are still allocated to this equipment. Unallocate them in the Accessories tab, then try again.")
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $this->saveLifecycleTransition($action, $status->value, $data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
     protected function saveLifecycleTransition(ModelsAction $action, string $newStatusId, array $data): void
     {
         try {
@@ -193,11 +262,13 @@ class ViewEquipment extends ViewRecord
                     'location_id' => match ($action->a_id) {
                         'alc' => null,
                         'dep', 'sidle', 'smt' => $data['location_id'] ?? $record->location_id,
+                        // Retired and disposed assets stay where they are; an allocated accessory keeps its equipment's location.
+                        'retire', 'dispose' => $record->effectiveLocation()?->getKey(),
                         default => $record->location_id,
                     },
                     'parent_id' => match ($action->a_id) {
                         'alc' => $data['allocate_to_equipment_id'] ?? null,
-                        'sidle', 'smt' => null,
+                        'sidle', 'smt', 'retire', 'dispose' => null,
                         default => $record->parent_id,
                     },
                 ]);

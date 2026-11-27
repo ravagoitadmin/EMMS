@@ -82,6 +82,7 @@ class LifecycleLogsRelationManager extends RelationManager
                                 'dep', 'alc' => 'success',
                                 'sidle' => 'danger',
                                 'smt' => 'warning',
+                                'dispose' => 'danger',
                                 default => 'gray',
                             })
                             ->icon(fn ($record) => $record->action?->a_icon),
@@ -131,6 +132,7 @@ class LifecycleLogsRelationManager extends RelationManager
                         'dep', 'alc' => 'success',
                         'sidle' => 'danger',
                         'smt' => 'warning',
+                        'dispose' => 'danger',
                         default => 'gray',
                     })
                     ->icon(fn ($record) => $record->action?->a_icon)

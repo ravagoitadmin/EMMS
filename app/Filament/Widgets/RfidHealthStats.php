@@ -55,7 +55,7 @@ class RfidHealthStats extends StatsOverviewWidget
                 ->color('info'),
             Stat::make('Equipment without a tag', $withoutTag)
                 ->icon(Heroicon::ExclamationTriangle)
-                ->description($withoutTag > 0 ? 'Active equipment that cannot be scanned' : 'Every active equipment has a tag')
+                ->description($withoutTag > 0 ? 'Equipment in service that cannot be scanned' : 'Every equipment in service has a tag')
                 ->color($withoutTag > 0 ? 'warning' : 'success'),
         ];
     }
@@ -84,7 +84,7 @@ class RfidHealthStats extends StatsOverviewWidget
             'health_headline' => $health->headline(),
             'without_tag' => Equipment::query()
                 ->equipmentAssets()
-                ->where('eqm_is_active', true)
+                ->inService()
                 ->whereDoesntHave('tags', fn ($tag) => $tag->where('is_deleted', false))
                 ->count(),
         ];

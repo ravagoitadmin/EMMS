@@ -39,7 +39,7 @@ class WorkOrdersRelationManager extends RelationManager
         return $table
             ->headerActions([
                 CreateAction::make()
-                    ->authorize(fn (): bool => (bool) $this->getOwnerRecord()->eqm_is_active
+                    ->authorize(fn (): bool => $this->getOwnerRecord()->isInService()
                         && (Auth::user()?->can('create', WorkOrder::class) ?? false)),
             ]);
     }

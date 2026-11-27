@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Equipment\RelationManagers;
 
+use App\Enums\LifecycleStatus;
 use App\Filament\Resources\Equipment\EquipmentResource;
 use App\Models\Equipment;
 use App\Models\LifecycleLog;
@@ -11,7 +12,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DissociateAction;
 use Filament\Actions\DissociateBulkAction;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -65,23 +65,18 @@ class AccessoriesRelationManager extends RelationManager
                     ->label('Model')
                     ->placeholder('—')
                     ->toggleable(),
-                TextColumn::make('eqm_is_active')
-                    ->label('Status')
-                    ->badge()
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')
-                    ->icon(fn (bool $state): Heroicon => $state ? Heroicon::CheckCircle : Heroicon::XCircle)
-                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
             ])
             ->headerActions([
                 AssociateAction::make()
                     ->label('Allocate accessory')
                     ->modalHeading('Allocate accessory')
-                    ->authorize(fn () => Auth::user()?->can('update', $this->getOwnerRecord()) ?? false)
+                    // Nothing is allocated to, or from, an asset that is retired or disposed.
+                    ->authorize(fn () => $this->getOwnerRecord()->isInService() && (Auth::user()?->can('update', $this->getOwnerRecord()) ?? false))
                     ->modalSubmitActionLabel('Allocate')
                     ->multiple()
                     ->preloadRecordSelect()
                     ->recordSelectSearchColumns(['eqm_name', 'eqm_prc_code'])
-                    ->recordSelectOptionsQuery(fn (Builder $query): Builder => $query->accessories())
+                    ->recordSelectOptionsQuery(fn (Builder $query): Builder => $query->accessories()->inService())
                     ->before(function (AssociateAction $action, array $data) {
                         $selectedIds = array_map('strval', (array) ($data['recordId'] ?? []));
                         $ownerRecord = $this->getOwnerRecord();
@@ -98,12 +93,13 @@ class AccessoriesRelationManager extends RelationManager
                         // 1. Every submitted record must pass the accessories scope
                         $validCount = Equipment::query()
                             ->accessories()
+                            ->inService()
                             ->whereIn('eqm_id', $selectedIds)
                             ->count();
 
                         if ($validCount !== count($selectedIds)) {
                             throw ValidationException::withMessages([
-                                'recordId' => 'One or more selected records are not a valid accessory.',
+                                'recordId' => 'One or more selected records are not an accessory in service (retired and disposed accessories cannot be allocated).',
                             ]);
                         }
 
@@ -136,10 +132,10 @@ class AccessoriesRelationManager extends RelationManager
                         DB::transaction(function () use ($record, $inverseRelationship, $relationship): void {
                             $inverseRelationship->associate($relationship->getParent());
                             // Allocated accessories take the parent's location; the observer clears location_id.
-                            $record->lifecycle_status_id = 'alc';
+                            $record->lifecycle_status_id = LifecycleStatus::Allocated->value;
                             $record->save();
 
-                            $this->createLifecycleLog($record, 'alc', 'alc', $relationship->getParent()->getKey());
+                            $this->createLifecycleLog($record, LifecycleStatus::Allocated->actionId(), LifecycleStatus::Allocated->value, $relationship->getParent()->getKey());
                             AccessoryAllocationLog::allocated($record, $relationship->getParent());
                         });
                     }),
@@ -151,7 +147,7 @@ class AccessoriesRelationManager extends RelationManager
                         DB::transaction(function () use ($record, $table): void {
                             $this->unallocate($record, $table);
 
-                            $this->createLifecycleLog($record, 'sidle', 'idle');
+                            $this->createLifecycleLog($record, LifecycleStatus::Idle->actionId(), LifecycleStatus::Idle->value);
                         });
                     }),
             ])
@@ -173,7 +169,7 @@ class AccessoriesRelationManager extends RelationManager
                                 });
 
                                 if ($accessoryIds !== []) {
-                                    $this->createLifecycleLogs($accessoryIds, 'sidle', 'idle');
+                                    $this->createLifecycleLogs($accessoryIds, LifecycleStatus::Idle->actionId(), LifecycleStatus::Idle->value);
                                 }
 
                                 $action->reportBulkProcessingSuccessfulRecordsCount(count($accessoryIds));
@@ -198,7 +194,7 @@ class AccessoriesRelationManager extends RelationManager
         $formerEquipment = $this->getOwnerRecord();
 
         $record->location_id = $formerEquipment->location_id;
-        $record->lifecycle_status_id = 'idle';
+        $record->lifecycle_status_id = LifecycleStatus::Idle->value;
 
         $table->getInverseRelationshipFor($record)->dissociate();
         $record->save();

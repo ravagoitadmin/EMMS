@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LifecycleStatus;
 use Carbon\Carbon;
 use Database\Factories\EquipmentFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -55,7 +56,6 @@ class Equipment extends Model
         'eqm_prc_code',
         'eqm_serial_num',
         'eqm_engine',
-        'eqm_is_active',
         'eqm_updated_at',
     ];
 
@@ -66,7 +66,6 @@ class Equipment extends Model
         'eqm_pm_itrv_start_date' => 'date',
         'eqm_next_pm_due_at' => 'date',
         'eqm_last_pm_notified_at' => 'date',
-        'eqm_is_active' => 'boolean',
     ];
 
     // public function type(): HasOneThrough
@@ -329,6 +328,45 @@ class Equipment extends Model
         return $query->ofAssetType(AssetType::SERVICE_VEHICLE);
     }
 
+    /**
+     * Assets still in service: every lifecycle status except Retired and Disposed (an asset without one counts as in service).
+     *
+     * @param  Builder<Equipment>  $query
+     * @return Builder<Equipment>
+     */
+    public function scopeInService(Builder $query): Builder
+    {
+        $column = $query->qualifyColumn('lifecycle_status_id');
+
+        return $query->where(fn (Builder $inService) => $inService
+            ->whereNull($column)
+            ->orWhereNotIn($column, LifecycleStatus::outOfService()));
+    }
+
+    /**
+     * @param  Builder<Equipment>  $query
+     * @return Builder<Equipment>
+     */
+    public function scopeOutOfService(Builder $query): Builder
+    {
+        return $query->whereIn($query->qualifyColumn('lifecycle_status_id'), LifecycleStatus::outOfService());
+    }
+
+    public function lifecycle(): ?LifecycleStatus
+    {
+        return LifecycleStatus::tryFrom((string) $this->lifecycle_status_id);
+    }
+
+    public function isInService(): bool
+    {
+        return ! $this->lifecycle()?->isOutOfService();
+    }
+
+    public function isDisposed(): bool
+    {
+        return $this->lifecycle() === LifecycleStatus::Disposed;
+    }
+
     public function lifecycleStatus(): BelongsTo
     {
         return $this->belongsTo(Status::class, 'lifecycle_status_id', 'status_id');
@@ -464,7 +502,7 @@ class Equipment extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['eqm_name', 'eqm_is_active'])
+            ->logOnly(['eqm_name'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

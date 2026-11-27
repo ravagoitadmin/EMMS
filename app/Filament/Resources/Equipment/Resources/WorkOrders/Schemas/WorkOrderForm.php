@@ -28,12 +28,12 @@ class WorkOrderForm
                                 ->relationship(
                                     'equipment',
                                     'eqm_name',
-                                    fn(Builder $query) => $query
+                                    fn (Builder $query) => $query
                                         ->equipmentAssets()
-                                        ->where('eqm_is_active', 1)
+                                        ->inService()
                                 )
                                 ->label('Equipment')
-                                ->default(fn(Component $livewire) => method_exists($livewire, 'getParentRecord')
+                                ->default(fn (Component $livewire) => method_exists($livewire, 'getParentRecord')
                                     ? $livewire->getParentRecord()?->getKey()
                                     : null)
                                 ->disabled(),
@@ -54,14 +54,14 @@ class WorkOrderForm
                                 ->relationship(
                                     'department',
                                     'dep_name',
-                                    fn(Builder $query) => $query->where('is_maintenance', 1)
+                                    fn (Builder $query) => $query->where('is_maintenance', 1)
                                 )
                                 ->searchable()
                                 ->preload()
                                 ->required()
                                 ->native(false)
                                 ->live()
-                                ->visible(fn() => auth()->user()->hasRole('super_admin')),
+                                ->visible(fn () => auth()->user()->hasRole('super_admin')),
                             Select::make('wo_prio_id')
                                 ->label('Priority')
                                 ->relationship('priority', 'prio_name')
@@ -109,12 +109,12 @@ class WorkOrderForm
                                 ->relationship(
                                     name: 'workers',
                                     titleAttribute: 'user_fname',
-                                    modifyQueryUsing: fn(Builder $query, Get $get) => $query
+                                    modifyQueryUsing: fn (Builder $query, Get $get) => $query
                                         ->where('is_active', true)
                                         ->where('user_dep_id', static::resolveDepartmentId($get))
                                 )
-                                ->options(fn(Get $get) => static::activeTechnicians(static::resolveDepartmentId($get))
-                                    ->mapWithKeys(fn($user) => [
+                                ->options(fn (Get $get) => static::activeTechnicians(static::resolveDepartmentId($get))
+                                    ->mapWithKeys(fn ($user) => [
                                         $user->user_id => "{$user->user_fname} {$user->user_lname}",
                                     ]))
                                 ->multiple()
@@ -122,7 +122,7 @@ class WorkOrderForm
                                 ->native(false)
                                 ->searchable()
                                 ->rules([
-                                    fn(Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get): void {
+                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get): void {
                                         $depId = static::resolveDepartmentId($get);
                                         $validIds = static::activeTechnicians($depId)->pluck('user_id')->all();
                                         $invalid = array_diff((array) $value, $validIds);
@@ -150,7 +150,7 @@ class WorkOrderForm
             return AppUser::whereRaw('1 = 0')->get();
         }
 
-        return AppUser::whereHas('roles', fn($q) => $q->where('name', 'technician'))
+        return AppUser::whereHas('roles', fn ($q) => $q->where('name', 'technician'))
             ->where('user_dep_id', $depId)
             ->where('is_active', 1)
             ->get();

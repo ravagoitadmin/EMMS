@@ -4,16 +4,11 @@ namespace App\Filament\Resources\Brands\RelationManagers;
 
 use App\Filament\Resources\Equipment\EquipmentResource;
 use App\Models\Equipment;
-use Filament\Actions\Action;
 use Filament\Actions\AssociateAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\CreateAction;
 use Filament\Actions\DissociateAction;
 use Filament\Actions\DissociateBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -35,7 +30,7 @@ class AccessoriesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn(Builder $query): Builder => $query->accessories())
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->accessories())
             ->recordTitleAttribute('eqm_name')
             ->columns([
                 TextColumn::make('eqm_prc_code')
@@ -54,33 +49,25 @@ class AccessoriesRelationManager extends RelationManager
                     ->toggleable()
                     ->searchable()
                     ->visible(
-                        fn(): bool => EquipmentResource::getConfiguration()?->getKey() !== 'equipment'
+                        fn (): bool => EquipmentResource::getConfiguration()?->getKey() !== 'equipment'
                     ),
-                TextColumn::make('eqm_is_active')
-                    ->label('Status')
-                    ->toggleable()
-                    ->sortable()
-                    ->badge()
-                    ->formatStateUsing(fn(bool $state): string => $state ? 'Active' : 'Inactive')
-                    ->icon(fn(bool $state): Heroicon => $state ? Heroicon::CheckCircle : Heroicon::XCircle)
-                    ->color(fn(bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('lifecycleStatus.status_title')
                     ->label('Lifecycle Status')
                     ->toggleable()
                     ->sortable()
                     ->badge()
-                    ->icon(fn($record) => $record->lifecycleStatus->status_icon)
-                    ->color(fn($record) => $record->lifecycleStatus->status_color),
+                    ->icon(fn ($record) => $record->lifecycleStatus->status_icon)
+                    ->color(fn ($record) => $record->lifecycleStatus->status_color),
                 TextColumn::make('location.name')
                     ->label('Location')
                     // Allocated accessories show their parent equipment's location.
-                    ->state(fn($record): ?string => $record->effectiveLocation()?->full_path)
-                    ->description(fn($record): ?string => $record->isAllocatedAccessory() ? "via {$record->parent?->eqm_name}" : null)
+                    ->state(fn ($record): ?string => $record->effectiveLocation()?->full_path)
+                    ->description(fn ($record): ?string => $record->isAllocatedAccessory() ? "via {$record->parent?->eqm_name}" : null)
                     ->toggleable()
                     ->searchable()
-                    ->sortable()
+                    ->sortable(),
             ])
-            ->recordUrl(fn(Equipment $record): string => EquipmentResource::withConfiguration('accessories', fn(): string => EquipmentResource::getUrl('view', ['record' => $record])));
+            ->recordUrl(fn (Equipment $record): string => EquipmentResource::withConfiguration('accessories', fn (): string => EquipmentResource::getUrl('view', ['record' => $record])));
         // ->headerActions([
         //     AssociateAction::make()
         //         ->authorize(fn(): bool => Auth::user()->hasPermissionTo('Update:EquipmentResource'))

@@ -146,7 +146,7 @@ class CreateTripAction
     }
 
     /**
-     * Active equipment and service vehicles (accessories have no trips), found by code or name.
+     * Equipment and service vehicles in service (accessories have no trips), found by code or name.
      *
      * @return array<int|string, string> equipment id => label
      */
@@ -155,7 +155,7 @@ class CreateTripAction
         return Equipment::query()
             ->with('assetType')
             ->movementTracked()
-            ->where('eqm_is_active', true)
+            ->inService()
             ->where(fn (Builder $query) => $query
                 ->where('eqm_prc_code', 'like', "%{$search}%")
                 ->orWhere('eqm_name', 'like', "%{$search}%"))

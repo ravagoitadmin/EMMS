@@ -9,7 +9,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DissociateAction;
 use Filament\Actions\DissociateBulkAction;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,7 +30,7 @@ class EquipmentUnitsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn(Builder $query): Builder => $query->equipmentAssets())
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->equipmentAssets())
             ->recordTitleAttribute('eqm_name')
             ->columns([
                 TextColumn::make('eqm_prc_code')
@@ -44,29 +43,21 @@ class EquipmentUnitsRelationManager extends RelationManager
                     ->toggleable()
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('eqm_is_active')
-                    ->label('Status')
-                    ->toggleable()
-                    ->sortable()
-                    ->badge()
-                    ->formatStateUsing(fn(bool $state): string => $state ? 'Active' : 'Inactive')
-                    ->icon(fn(bool $state): Heroicon => $state ? Heroicon::CheckCircle : Heroicon::XCircle)
-                    ->color(fn(bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('lifecycleStatus.status_title')
                     ->label('Lifecycle Status')
                     ->toggleable()
                     ->sortable()
                     ->badge()
-                    ->icon(fn($record) => $record->lifecycleStatus->status_icon)
-                    ->color(fn($record) => $record->lifecycleStatus->status_color),
+                    ->icon(fn ($record) => $record->lifecycleStatus->status_icon)
+                    ->color(fn ($record) => $record->lifecycleStatus->status_color),
                 TextColumn::make('location.name')
                     ->label('Location')
-                    ->state(fn($record): ?string => $record->effectiveLocation()?->full_path)
+                    ->state(fn ($record): ?string => $record->effectiveLocation()?->full_path)
                     ->toggleable()
                     ->searchable()
-                    ->sortable()
+                    ->sortable(),
             ])
-            ->recordUrl(fn(Equipment $record): string => EquipmentResource::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn (Equipment $record): string => EquipmentResource::getUrl('view', ['record' => $record]))
             // ->headerActions([
             //     AssociateAction::make()
             //         ->recordSelectOptionsQuery(fn(Builder $query) => $query->equipmentAssets()),
@@ -82,7 +73,7 @@ class EquipmentUnitsRelationManager extends RelationManager
                     ->multiple()
                     ->recordSelectSearchColumns(['eqm_name', 'eqm_prc_code'])
                     ->recordSelectOptionsQuery(
-                        fn(Builder $query): Builder => $query->equipmentAssets(),
+                        fn (Builder $query): Builder => $query->equipmentAssets(),
                     )
                     ->before(function (array $data) {
                         $equipmentIds = (array) ($data['recordId'] ?? []);

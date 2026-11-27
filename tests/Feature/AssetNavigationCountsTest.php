@@ -32,7 +32,6 @@ class AssetNavigationCountsTest extends TestCase
             $table->unsignedBigInteger('eqm_eqmm_id')->nullable();
             $table->string('eqm_name');
             $table->string('eqm_prc_code')->nullable()->unique();
-            $table->boolean('eqm_is_active')->default(true);
         });
 
         AssetType::flushIdCache();

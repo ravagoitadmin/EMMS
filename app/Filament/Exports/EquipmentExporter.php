@@ -31,9 +31,6 @@ class EquipmentExporter extends Exporter
             ExportColumn::make('parent.eqm_name')
                 ->label('Allocated To')
                 ->preventFormulaInjection(),
-            ExportColumn::make('eqm_is_active')
-                ->label('Status')
-                ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive'),
             ExportColumn::make('lifecycleStatus.status_title')
                 ->label('Lifecycle Status'),
             ExportColumn::make('location')

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\LifecycleStatus;
 use App\Mail\MaintenanceTaskDueMail;
 use App\Models\AppUser;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -59,7 +60,7 @@ class ProcessDueDateChecks implements ShouldQueue
             ->join('equipment_units as equ', 'equ.eqm_id', '=', 'ets.ets_eqm_id')
             ->join('departments as dep', 'dep.dep_id', '=', 'ets.ets_dep_id')
             ->where('dep.is_maintenance', 1)
-            ->where('equ.eqm_is_active', 1)
+            ->where(fn ($inService) => $inService->whereNull('equ.lifecycle_status_id')->orWhereNotIn('equ.lifecycle_status_id', LifecycleStatus::outOfService()))
             ->whereNotNull('ets.ets_due_dt')
             ->where('ets.ets_due_dt', '<=', $now)
             ->select([
@@ -151,7 +152,7 @@ class ProcessDueDateChecks implements ShouldQueue
             ->join('departments as dep', 'dep.dep_id', '=', 'maintenance_tasks.mt_dep_id')
             ->join('equipment_units as equ', 'equ.eqm_id', '=', 'maintenance_tasks.mt_eqm_id')
             ->where('dep.is_maintenance', 1)
-            ->where('equ.eqm_is_active', 1)
+            ->where(fn ($inService) => $inService->whereNull('equ.lifecycle_status_id')->orWhereNotIn('equ.lifecycle_status_id', LifecycleStatus::outOfService()))
             ->where('mt_due_dt', '<=', $now)
             ->whereDate('mt_dt', '!=', $now->toDateString())
             ->whereNotNull('mt_due_dt')
@@ -210,7 +211,7 @@ class ProcessDueDateChecks implements ShouldQueue
             ->join('departments as dep', 'dep.dep_id', '=', 'mt.mt_dep_id')
             ->join('tasks as t', 't.task_id', '=', 'mt.mt_task_id')
             ->join('statuses as s', 's.status_id', '=', 'mt.mt_status_id')
-            ->where('eqm.eqm_is_active', 1)
+            ->where(fn ($inService) => $inService->whereNull('eqm.lifecycle_status_id')->orWhereNotIn('eqm.lifecycle_status_id', LifecycleStatus::outOfService()))
             ->whereIn('mt.mt_eqm_id', $eqmIds)
             ->whereIn('mt.mt_task_id', $taskIds)
             ->whereRaw('DATE(mt.mt_due_dt) = ?', [$now->toDateString()])

@@ -36,7 +36,7 @@ class PurgeAssets extends Command
         $reasons = $rows->mapWithKeys(fn (array $row): array => [(string) $row[$codeColumn] => $reasonColumn ? (string) $row[$reasonColumn] : ''])->all();
         $codes = array_keys($reasons);
 
-        $units = DB::table('equipment_units')->get(['eqm_id', 'eqm_prc_code', 'eqm_name', 'asset_type_id', 'eqm_is_active'])->keyBy('eqm_id');
+        $units = DB::table('equipment_units')->get(['eqm_id', 'eqm_prc_code', 'eqm_name', 'asset_type_id', 'lifecycle_status_id'])->keyBy('eqm_id');
         $match = $purger->matchCodes(array_map('strval', $codes), $units);
 
         $typeNames = DB::table('asset_types')->pluck('name', 'id');
@@ -193,7 +193,7 @@ class PurgeAssets extends Command
         $path = $directory.'/'.now()->format('Ymd_His').'_deleted_assets.csv';
 
         $handle = fopen($path, 'w');
-        fputcsv($handle, ['eqm_id', 'asset_code', 'asset_name', 'asset_type', 'active', 'reason', 'match', 'deleted_work_orders'], escape: '');
+        fputcsv($handle, ['eqm_id', 'asset_code', 'asset_name', 'asset_type', 'lifecycle_status', 'reason', 'match', 'deleted_work_orders'], escape: '');
 
         foreach ($assets as $asset) {
             fputcsv($handle, [
@@ -201,7 +201,7 @@ class PurgeAssets extends Command
                 $units[$asset['id']]->eqm_prc_code,
                 $asset['name'],
                 $asset['type'],
-                $units[$asset['id']]->eqm_is_active ? 'yes' : 'no',
+                (string) $units[$asset['id']]->lifecycle_status_id,
                 $asset['reason'],
                 $asset['match'],
                 $workOrders->where('wo_eqm_id', $asset['id'])->pluck('wo_no')->implode(' '),

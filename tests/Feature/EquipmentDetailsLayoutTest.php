@@ -6,6 +6,7 @@ use App\Filament\Resources\Equipment\Schemas\EquipmentInfolist;
 use App\Models\AssetType;
 use App\Models\Equipment;
 use Filament\Infolists\Components\Entry;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
@@ -21,7 +22,7 @@ class EquipmentDetailsLayoutTest extends TestCase
      * Every field the Details tab showed before the layout was reorganised. None of them may be lost.
      */
     private const FIELDS = [
-        'eqm_prc_code', 'eqm_name', 'eqm_is_active',
+        'eqm_prc_code', 'eqm_name',
         'eqm_pm_itrv_type', 'eqm_pm_itrv_value', 'eqm_pm_itrv_start_date', 'eqm_next_pm_due_at', 'eqm_last_pm_notified_at',
         'assetType.name', 'parent.eqm_name', 'lifecycleStatus.status_title', 'categories', 'location.full_path',
         'equipmentModel.eqmm_name', 'type.eqmt_name', 'brand.eqmb_name', 'eqm_plate_num', 'eqm_chassis_no',
@@ -85,14 +86,14 @@ class EquipmentDetailsLayoutTest extends TestCase
             ->first(fn ($component): bool => $component instanceof Section && (string) $component->getHeading() === 'Asset Details');
 
         $this->assertTrue($details->hasInlineLabel());
+        // The entries sit in two column groups (left, then right), read top to bottom.
         $this->assertSame(
             [
-                'eqm_name', 'eqm_prc_code', 'eqm_is_active',
-                'assetType.name', 'lifecycleStatus.status_title', 'location.full_path', 'parent.eqm_name',
-                'brand.eqmb_name', 'equipmentModel.eqmm_name', 'type.eqmt_name', 'year_model', 'eqm_plate_num', 'eqm_chassis_no', 'eqm_date_purchased',
-                'categories',
+                'eqm_prc_code', 'eqm_name', 'lifecycleStatus.status_title', 'assetType.name', 'type.eqmt_name', 'brand.eqmb_name', 'equipmentModel.eqmm_name',
+                'year_model', 'eqm_date_purchased', 'eqm_plate_num', 'eqm_chassis_no', 'location.full_path', 'parent.eqm_name', 'categories',
             ],
             collect($details->getDefaultChildComponents())
+                ->flatMap(fn ($column): array => $column instanceof Group ? $column->getDefaultChildComponents() : [$column])
                 ->filter(fn ($component): bool => $component instanceof Entry)
                 ->map(fn (Entry $entry): string => $entry->getName())
                 ->values()
@@ -116,8 +117,8 @@ class EquipmentDetailsLayoutTest extends TestCase
         $this->assertSame($names, array_values(array_unique($names)));
     }
 
-    public function test_the_overview_comes_first_with_the_asset_name_and_code(): void
+    public function test_the_overview_comes_first_with_the_asset_code_name_and_lifecycle_status(): void
     {
-        $this->assertSame(['eqm_name', 'eqm_prc_code', 'eqm_is_active'], array_slice($this->entryNames(), 0, 3));
+        $this->assertSame(['eqm_prc_code', 'eqm_name', 'lifecycleStatus.status_title'], array_slice($this->entryNames(), 0, 3));
     }
 }

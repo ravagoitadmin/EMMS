@@ -26,9 +26,9 @@ class RequestorWorkOrderForm
                             ->relationship(
                                 'equipment',
                                 'eqm_name',
-                                fn(Builder $query) => $query
+                                fn (Builder $query) => $query
                                     ->equipmentAssets()
-                                    ->where('eqm_is_active', 1)
+                                    ->inService()
                             )
                             ->searchable(['eqm_name', 'eqm_prc_code'])
                             ->getOptionLabelFromRecordUsing(function (Equipment $record): string {
@@ -53,7 +53,7 @@ class RequestorWorkOrderForm
                             ->relationship(
                                 'department',
                                 'dep_name',
-                                fn(Builder $query) => $query->where('is_maintenance', 1)
+                                fn (Builder $query) => $query->where('is_maintenance', 1)
                             )
                             ->searchable()
                             ->preload()

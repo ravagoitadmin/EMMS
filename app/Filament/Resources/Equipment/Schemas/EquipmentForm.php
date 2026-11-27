@@ -13,7 +13,6 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -96,12 +95,6 @@ class EquipmentForm
                                     ->maxLength(255)
                                     ->disabled(fn (string $operation): bool => ! self::canEditAssetIdentity($operation))
                                     ->dehydrated(fn (string $operation): bool => self::canEditAssetIdentity($operation)),
-                                Toggle::make('eqm_is_active')
-                                    ->label('Active')
-                                    ->default(true)
-                                    ->disabled(fn (string $operation): bool => ! self::canEditAssetIdentity($operation))
-                                    ->dehydrated(fn (string $operation): bool => self::canEditAssetIdentity($operation))
-                                    ->columnSpan(1),
                             ]),
 
                         Section::make('Preventive Maintenance Schedule')

@@ -2,12 +2,11 @@
 
 namespace App\Filament\Resources\Models\Resources\Equipment\Tables;
 
+use App\Models\Status;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -29,14 +28,6 @@ class EquipmentTable
                     ->toggleable()
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('eqm_is_active')
-                    ->label('Status')
-                    ->toggleable()
-                    ->sortable()
-                    ->badge()
-                    ->formatStateUsing(fn(bool $state): string => $state ? 'Active' : 'Inactive')
-                    ->icon(fn(bool $state): Heroicon => $state ? Heroicon::CheckCircle : Heroicon::XCircle)
-                    ->color(fn(bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('equipmentModel.eqmm_name')
                     ->label('Model')
                     ->toggleable()
@@ -52,15 +43,19 @@ class EquipmentTable
                     ->toggleable()
                     ->sortable()
                     ->searchable(),
+                TextColumn::make('lifecycleStatus.status_title')
+                    ->label('Lifecycle Status')
+                    ->badge()
+                    ->color(fn ($record): ?string => $record->lifecycleStatus?->status_color)
+                    ->icon(fn ($record): ?string => $record->lifecycleStatus?->status_icon)
+                    ->placeholder('—')
+                    ->toggleable(),
             ])
             ->defaultSort('eqm_name', 'asc')
             ->filters([
-                SelectFilter::make('eqm_is_active')
-                    ->label('Status')
-                    ->options([
-                        1 => 'Active',
-                        0 => 'Inactive',
-                    ]),
+                SelectFilter::make('lifecycle_status_id')
+                    ->label('Lifecycle Status')
+                    ->options(fn (): array => Status::lifecycleOptions()),
                 SelectFilter::make('eqm_eqmm_id')
                     ->label('Model')
                     ->relationship('equipmentModel', 'eqmm_name')

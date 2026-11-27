@@ -7,6 +7,7 @@ use App\Filament\Resources\Equipment\EquipmentResource;
 use App\Filament\Support\ReportPage;
 use App\Models\AssetType;
 use App\Models\Equipment;
+use App\Models\Status;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Filament\Tables\Columns\TextColumn;
@@ -56,12 +57,6 @@ class AssetReport extends ReportPage
                     ->badge()
                     ->placeholder('—')
                     ->sortable(),
-                TextColumn::make('eqm_is_active')
-                    ->label('Status')
-                    ->badge()
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')
-                    ->color(fn (bool $state): string => $state ? 'success' : 'danger')
-                    ->sortable(),
                 TextColumn::make('lifecycleStatus.status_title')
                     ->label('Lifecycle Status')
                     ->badge()
@@ -78,12 +73,9 @@ class AssetReport extends ReportPage
                 SelectFilter::make('asset_type_id')
                     ->label('Asset Type')
                     ->relationship('assetType', 'name'),
-                SelectFilter::make('eqm_is_active')
-                    ->label('Status')
-                    ->options([1 => 'Active', 0 => 'Inactive']),
                 SelectFilter::make('lifecycle_status_id')
                     ->label('Lifecycle Status')
-                    ->relationship('lifecycleStatus', 'status_title'),
+                    ->options(fn (): array => Status::lifecycleOptions()),
             ])
             ->recordUrl(fn (Equipment $record): ?string => Auth::user()?->can('view', $record)
                 ? EquipmentResource::getUrl('view', ['record' => $record])
@@ -102,7 +94,6 @@ class AssetReport extends ReportPage
         return [
             'total' => $this->filteredQuery()->count(),
             'groups' => [
-                'By status' => $this->countBy('eqm_is_active', [1 => 'Active', 0 => 'Inactive']),
                 'By lifecycle' => $this->countBy('lifecycle_status_id', $this->statusLabels($lifecycleIds)),
                 'By asset type' => $this->countBy('asset_type_id', AssetType::query()->orderBy('name')->pluck('name', 'id')->all()),
             ],

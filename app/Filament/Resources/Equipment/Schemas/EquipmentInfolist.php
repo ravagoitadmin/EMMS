@@ -24,23 +24,18 @@ class EquipmentInfolist
         return $schema
             ->components([
                 Section::make('Asset Details')
-                    ->description('Name, code and status cannot be edited here.')
+                    ->description('Name and code cannot be edited here; the lifecycle status changes through More actions.')
                     ->icon('heroicon-o-cube')
                     ->columns(['default' => 1, 'xl' => 2])
                     ->inlineLabel()
-                    // Two columns from xl up, each read top to bottom: 1-7 on the left, then 8-14 on the right.
-                    // On smaller screens the left column stacks above the right one, so the order stays 1-14.
+                    // Two columns from xl up, each read top to bottom: the left column first, then the right one.
+                    // On smaller screens the left column stacks above the right one, so the order stays the same.
                     ->schema([
                         Group::make([
                             TextEntry::make('eqm_prc_code')
                                 ->label('Asset Code'),
                             TextEntry::make('eqm_name')
                                 ->label('Asset Name'),
-                            TextEntry::make('eqm_is_active')
-                                ->label('Status')
-                                ->badge()
-                                ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')
-                                ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
                             TextEntry::make('lifecycleStatus.status_title')
                                 ->label('Lifecycle Status')
                                 ->badge()
@@ -60,11 +55,11 @@ class EquipmentInfolist
                             TextEntry::make('brand.eqmb_name')
                                 ->label('Brand')
                                 ->placeholder('—'),
-                        ]),
-                        Group::make([
                             TextEntry::make('equipmentModel.eqmm_name')
                                 ->label('Model')
                                 ->placeholder('—'),
+                        ]),
+                        Group::make([
                             TextEntry::make('year_model')
                                 ->label('Year Model')
                                 ->placeholder('—'),

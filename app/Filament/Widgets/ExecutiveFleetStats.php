@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\LifecycleStatus;
 use App\Models\Equipment;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
@@ -33,20 +34,21 @@ class ExecutiveFleetStats extends StatsOverviewWidget
         // Counted over every asset, so kept for a minute instead of being counted again on every refresh.
         $row = (object) Cache::remember('dashboard.fleet_overview', now()->addSeconds(60), fn (): array => (array) Equipment::query()
             ->selectRaw('COUNT(*) as total')
-            ->selectRaw('SUM(eqm_is_active = 1) as active')
-            ->selectRaw("SUM(lifecycle_status_id = 'dep') as deployed")
-            ->selectRaw("SUM(lifecycle_status_id = 'udmt') as maintenance")
-            ->selectRaw("SUM(lifecycle_status_id = 'idle') as idle")
+            ->selectRaw('SUM(lifecycle_status_id IN (?, ?)) as out_of_service', LifecycleStatus::outOfService())
+            ->selectRaw('SUM(lifecycle_status_id = ?) as deployed', [LifecycleStatus::Deployed->value])
+            ->selectRaw('SUM(lifecycle_status_id = ?) as maintenance', [LifecycleStatus::UnderMaintenance->value])
+            ->selectRaw('SUM(lifecycle_status_id = ?) as idle', [LifecycleStatus::Idle->value])
             ->toBase()
             ->first());
 
         $total = (int) ($row->total ?? 0);
+        $outOfService = (int) ($row->out_of_service ?? 0);
         $share = fn (int $count): string => $total > 0 ? round($count / $total * 100).'% of all assets' : '—';
 
         return [
             Stat::make('Total assets', $total)
                 ->icon(Heroicon::CubeTransparent)
-                ->description((int) ($row->active ?? 0).' active, '.($total - (int) ($row->active ?? 0)).' inactive')
+                ->description(($total - $outOfService).' in service, '.$outOfService.' retired or disposed')
                 ->color('primary'),
             Stat::make('Deployed', (int) ($row->deployed ?? 0))
                 ->icon(Heroicon::Truck)

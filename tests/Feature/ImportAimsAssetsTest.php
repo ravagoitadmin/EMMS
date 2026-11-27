@@ -38,7 +38,6 @@ class ImportAimsAssetsTest extends TestCase
             $table->string('lifecycle_status_id')->default('idle');
             $table->string('eqm_prc_code', 255)->unique();
             $table->string('eqm_name');
-            $table->boolean('eqm_is_active')->default(true);
             $table->text('specifications')->nullable();
             $table->unsignedBigInteger('eqm_eqmm_id')->nullable();
             $table->unsignedBigInteger('eqm_eqmt_id')->nullable();
@@ -108,7 +107,7 @@ class ImportAimsAssetsTest extends TestCase
         $this->assertSame(1, (int) $added['XE215D']->asset_type_id);
         $this->assertSame('<p>AIMS remarks: TOK 581</p>', $added['L300#3']->specifications);
         $this->assertNull($added['XE215D']->specifications);
-        $this->assertTrue($added->every(fn ($a) => $a->parent_id === null && (bool) $a->eqm_is_active));
+        $this->assertTrue($added->every(fn ($a) => $a->parent_id === null && $a->lifecycle_status_id === 'idle'));
         $this->assertCount(1, File::glob($this->storage.'/app/asset-imports/*_added_assets.csv'));
     }
 

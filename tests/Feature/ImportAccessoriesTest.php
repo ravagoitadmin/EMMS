@@ -37,7 +37,6 @@ class ImportAccessoriesTest extends TestCase
             $table->string('lifecycle_status_id')->default('idle');
             $table->string('eqm_prc_code', 30)->unique();
             $table->string('eqm_name');
-            $table->boolean('eqm_is_active')->default(true);
             $table->text('specifications')->nullable();
             $table->unsignedBigInteger('eqm_eqmm_id')->nullable();
             $table->unsignedBigInteger('eqm_eqmt_id')->nullable();
@@ -102,7 +101,7 @@ class ImportAccessoriesTest extends TestCase
 
         $this->assertSame(['JIB EXTENSION', 'MAIN HOOK (SINGLE SHEAVE)', 'MAIN HOOK(4SHEAVES)'], $added->pluck('eqm_prc_code')->all());
         $this->assertSame($added->pluck('eqm_prc_code')->all(), $added->pluck('eqm_name')->all());
-        $this->assertTrue($added->every(fn ($a) => (int) $a->asset_type_id === 2 && $a->parent_id === null && $a->location_id === null && (bool) $a->eqm_is_active));
+        $this->assertTrue($added->every(fn ($a) => (int) $a->asset_type_id === 2 && $a->parent_id === null && $a->location_id === null && $a->lifecycle_status_id === 'idle'));
         $this->assertCount(1, File::glob($this->storage.'/app/asset-imports/*_added_accessories.csv'));
     }
 

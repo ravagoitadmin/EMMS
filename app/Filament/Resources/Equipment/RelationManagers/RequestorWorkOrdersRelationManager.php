@@ -58,7 +58,7 @@ class RequestorWorkOrdersRelationManager extends RelationManager
         return $table
             ->headerActions([
                 CreateAction::make()
-                    ->visible(fn (): bool => (bool) $this->getOwnerRecord()->eqm_is_active)
+                    ->visible(fn (): bool => $this->getOwnerRecord()->isInService())
                     ->authorize(fn () => Auth::user()->can('create', RequestorWorkOrder::class))
                     ->color('primary')
                     ->closeModalByClickingAway(false)

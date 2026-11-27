@@ -232,6 +232,8 @@ return [
                 'deploy',
                 'setToIdle',
                 'setToMaintenance',
+                'retire',
+                'dispose',
             ],
             WorkOrderResource::class => [
                 'export',

@@ -160,7 +160,7 @@ class SuperAdminDashboardTest extends AssetMovementTestCase
             ->assertSee('Last scan')
             ->assertSee('Oct 29, 2026 09:30 AM')
             ->assertSee('1 retired')
-            ->assertSee('Active equipment that cannot be scanned');
+            ->assertSee('Equipment in service that cannot be scanned');
     }
 
     public function test_rfid_health_flags_the_readers_when_nothing_has_ever_been_scanned(): void

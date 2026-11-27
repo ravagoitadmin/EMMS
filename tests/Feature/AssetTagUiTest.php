@@ -64,7 +64,6 @@ class AssetTagUiTest extends TestCase
             $table->unsignedBigInteger('eqm_eqmm_id')->nullable();
             $table->string('eqm_name');
             $table->string('eqm_prc_code')->nullable()->unique();
-            $table->boolean('eqm_is_active')->default(true);
         });
 
         // Same shape as the real table, including the columns that came from AIMS.

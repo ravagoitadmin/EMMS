@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Equipment\Tables;
 use App\Filament\Resources\Equipment\EquipmentResource;
 use App\Models\AssetType;
 use App\Models\Equipment;
+use App\Models\Status;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -94,14 +95,6 @@ class EquipmentTable
                     ->visible(
                         fn (): bool => in_array(EquipmentResource::getConfiguration()?->getKey(), ['assets', 'accessories'], true)
                     ),
-                TextColumn::make('eqm_is_active')
-                    ->label('Status')
-                    ->toggleable()
-                    ->sortable()
-                    ->badge()
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')
-                    ->icon(fn (bool $state): Heroicon => $state ? Heroicon::CheckCircle : Heroicon::XCircle)
-                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('lifecycleStatus.status_title')
                     ->label('Lifecycle Status')
                     ->toggleable()
@@ -120,12 +113,9 @@ class EquipmentTable
             ])
             // ->defaultSort('eqm_name', 'asc')
             ->filters([
-                SelectFilter::make('eqm_is_active')
-                    ->label('Status')
-                    ->options([
-                        1 => 'Active',
-                        0 => 'Inactive',
-                    ]),
+                SelectFilter::make('lifecycle_status_id')
+                    ->label('Lifecycle Status')
+                    ->options(fn (): array => Status::lifecycleOptions()),
                 SelectFilter::make('asset_type_id')
                     ->label('Asset Type')
                     ->relationship('assetType', 'name'),

@@ -28,12 +28,13 @@ class EquipmentInfolist
                                 TextEntry::make('eqm_name')
                                     ->label('Equipment Name')
                                     ->columnSpanFull(),
-                                TextEntry::make('eqm_is_active')
-                                    ->label('Status')
+                                TextEntry::make('lifecycleStatus.status_title')
+                                    ->label('Lifecycle Status')
                                     ->badge()
-                                    ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')
-                                    ->icon(fn (bool $state): string => $state ? 'heroicon-o-check-circle' : 'heroicon-o-x-circle')
-                                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
+                                    ->color(fn ($record): ?string => $record->lifecycleStatus?->status_color)
+                                    ->icon(fn ($record): ?string => $record->lifecycleStatus?->status_icon)
+                                    ->placeholder('—')
+                                    ->columnSpanFull(),
                             ]),
 
                         Section::make('Asset Details')

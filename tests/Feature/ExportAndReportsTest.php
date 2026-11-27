@@ -171,15 +171,15 @@ class ExportAndReportsTest extends TestCase
     {
         $this->actingAs($this->makeUser('manager', ['View:AssetReport']));
 
-        $active = Equipment::factory()->equipment()->create(['eqm_is_active' => true]);
-        $inactive = Equipment::factory()->equipment()->create(['eqm_is_active' => false]);
+        $inService = Equipment::factory()->equipment()->create();
+        $retired = Equipment::factory()->equipment()->retired()->create();
 
         $page = Livewire::test(AssetReport::class)
-            ->assertCanSeeTableRecords([$active, $inactive]);
+            ->assertCanSeeTableRecords([$inService, $retired]);
 
         $summary = $page->instance()->getSummary();
         $this->assertSame(2, $summary['total']);
-        $this->assertSame(['Active' => 1, 'Inactive' => 1], $summary['groups']['By status']);
+        $this->assertArrayNotHasKey('By status', $summary['groups']);
         $this->assertSame(2, $summary['groups']['By asset type']['Equipment']);
     }
 
@@ -282,11 +282,12 @@ class ExportAndReportsTest extends TestCase
             'ViewServiceVehicleList:EquipmentResource',
         ]));
 
-        Equipment::factory()->equipment()->count(3)->create(['eqm_is_active' => true]);
-        Equipment::factory()->equipment()->create(['eqm_is_active' => false]);
-        Equipment::factory()->accessory()->count(2)->create(['eqm_is_active' => true]);
-        Equipment::factory()->accessory()->count(2)->create(['eqm_is_active' => false]);
-        Equipment::factory()->serviceVehicle()->create(['eqm_is_active' => true]);
+        Equipment::factory()->equipment()->count(3)->create();
+        Equipment::factory()->equipment()->retired()->create();
+        Equipment::factory()->accessory()->count(2)->create();
+        Equipment::factory()->accessory()->retired()->create();
+        Equipment::factory()->accessory()->disposed()->create();
+        Equipment::factory()->serviceVehicle()->create();
 
         $badges = function (?string $configuration): array {
             Filament::setCurrentResourceConfigurationKey($configuration);
@@ -296,9 +297,9 @@ class ExportAndReportsTest extends TestCase
             return array_map(fn ($tab): int => (int) $tab->getBadge(), $tabs);
         };
 
-        $this->assertSame(['all' => 4, 'active' => 3, 'inactive' => 1], $badges('equipment'));
-        $this->assertSame(['all' => 4, 'active' => 2, 'inactive' => 2], $badges('accessories'));
-        $this->assertSame(['all' => 1, 'active' => 1, 'inactive' => 0], $badges('service-vehicles'));
+        $this->assertSame(['all' => 4, 'in_service' => 3, 'retired' => 1, 'disposed' => 0], $badges('equipment'));
+        $this->assertSame(['all' => 4, 'in_service' => 2, 'retired' => 1, 'disposed' => 1], $badges('accessories'));
+        $this->assertSame(['all' => 1, 'in_service' => 1, 'retired' => 0, 'disposed' => 0], $badges('service-vehicles'));
     }
 
     public function test_export_only_includes_rows_in_the_users_department(): void
@@ -469,7 +470,6 @@ class ExportAndReportsTest extends TestCase
             $table->string('eqm_engine')->nullable();
             $table->date('eqm_date_purchased')->nullable();
             $table->date('eqm_next_pm_due_at')->nullable();
-            $table->boolean('eqm_is_active')->default(true);
         });
 
         Schema::create('work_orders', function (Blueprint $table): void {

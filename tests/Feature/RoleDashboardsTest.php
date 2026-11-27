@@ -8,7 +8,6 @@ use App\Filament\Widgets\AssetLifecycleChart;
 use App\Filament\Widgets\AssetsByTypeStats;
 use App\Filament\Widgets\DashboardStatsOverview;
 use App\Filament\Widgets\EquipmentOutNowWidget;
-use App\Filament\Widgets\EquipmentStatusChart;
 use App\Filament\Widgets\ExecutiveFleetStats;
 use App\Filament\Widgets\MyRequestsWidget;
 use App\Filament\Widgets\OpenWorkOrdersByDepartmentChart;
@@ -219,16 +218,16 @@ class RoleDashboardsTest extends AssetMovementTestCase
     public function test_execom_sees_the_fleet_in_numbers(): void
     {
         DB::table('equipment_units')->insert([
-            ['eqm_name' => 'A', 'eqm_prc_code' => 'A', 'eqm_is_active' => true, 'lifecycle_status_id' => 'dep'],
-            ['eqm_name' => 'B', 'eqm_prc_code' => 'B', 'eqm_is_active' => true, 'lifecycle_status_id' => 'dep'],
-            ['eqm_name' => 'C', 'eqm_prc_code' => 'C', 'eqm_is_active' => false, 'lifecycle_status_id' => 'idle'],
-            ['eqm_name' => 'D', 'eqm_prc_code' => 'D', 'eqm_is_active' => true, 'lifecycle_status_id' => 'udmt'],
+            ['eqm_name' => 'A', 'eqm_prc_code' => 'A', 'lifecycle_status_id' => 'dep'],
+            ['eqm_name' => 'B', 'eqm_prc_code' => 'B', 'lifecycle_status_id' => 'dep'],
+            ['eqm_name' => 'C', 'eqm_prc_code' => 'C', 'lifecycle_status_id' => 'ret'],
+            ['eqm_name' => 'D', 'eqm_prc_code' => 'D', 'lifecycle_status_id' => 'udmt'],
         ]);
         $this->actingAs($this->userWith('execom'));
 
         Livewire::test(ExecutiveFleetStats::class)
             ->assertSee('Total assets')
-            ->assertSee('3 active, 1 inactive')
+            ->assertSee('3 in service, 1 retired or disposed')
             ->assertSee('50% of all assets')
             ->assertSee('25% of all assets');
     }
@@ -370,8 +369,8 @@ class RoleDashboardsTest extends AssetMovementTestCase
         DB::table('equipment_units')->insert(['eqm_name' => 'Bare', 'eqm_prc_code' => 'B1']);
         // An accessory allocated to equipment sits where its parent is, so it needs no location.
         DB::table('equipment_units')->insert(['eqm_name' => 'Allocated', 'eqm_prc_code' => 'A1', 'parent_id' => $complete, 'eqm_eqmm_id' => 5]);
-        // Inactive records are not counted.
-        DB::table('equipment_units')->insert(['eqm_name' => 'Retired', 'eqm_prc_code' => 'R1', 'eqm_is_active' => false]);
+        // Retired and disposed assets are not counted.
+        DB::table('equipment_units')->insert(['eqm_name' => 'Retired', 'eqm_prc_code' => 'R1', 'lifecycle_status_id' => 'ret']);
         $this->actingAs($this->userWith('asset_admin'));
 
         Livewire::test(AssetDataQualityStats::class)
@@ -417,7 +416,7 @@ class RoleDashboardsTest extends AssetMovementTestCase
             DashboardStatsOverview::class, TripsNeedingAttentionStats::class, AssetsByTypeStats::class, RfidHealthStats::class,
             AssetDataQualityStats::class, ExecutiveFleetStats::class, WorkOrderHealthStats::class,
             AssetLifecycleChart::class, OpenWorkOrdersByDepartmentChart::class,
-            EquipmentStatusChart::class, WorkOrderTrendChart::class, WorkOrderByPriorityChart::class,
+            WorkOrderTrendChart::class, WorkOrderByPriorityChart::class,
         ];
 
         foreach ($widgets as $widget) {

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Super admin and asset admin: active assets with gaps in their data, the records an asset admin has to fix.
+ * Super admin and asset admin: assets in service with gaps in their data, the records an asset admin has to fix.
  * (Assets with no type and equipment with no tag are shown by the "Assets by Type" and "RFID Health" sections.)
  */
 class AssetDataQualityStats extends StatsOverviewWidget
@@ -22,7 +22,7 @@ class AssetDataQualityStats extends StatsOverviewWidget
 
     protected ?string $heading = 'Asset Data to Complete';
 
-    protected ?string $description = 'Active assets that are missing information.';
+    protected ?string $description = 'Assets in service (not retired or disposed) that are missing information.';
 
     public static function canView(): bool
     {
@@ -47,7 +47,7 @@ class AssetDataQualityStats extends StatsOverviewWidget
      */
     private function queryGaps(): array
     {
-        $active = fn () => Equipment::query()->where('eqm_is_active', true);
+        $active = fn () => Equipment::query()->inService();
 
         return [
             // An accessory allocated to equipment sits where its parent is, so it needs no location of its own.

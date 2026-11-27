@@ -117,7 +117,6 @@ class ImportAimsAssets extends Command
                 'eqm_prc_code' => $asset['eqm_prc_code'],
                 'eqm_name' => $asset['eqm_name'],
                 'asset_type_id' => AssetType::idFor($asset['type']),
-                'eqm_is_active' => true,
                 'specifications' => $asset['remarks'] !== '' ? '<p>AIMS remarks: '.e($asset['remarks']).'</p>' : null,
             ])->getKey(),
         ] + $asset)->all());

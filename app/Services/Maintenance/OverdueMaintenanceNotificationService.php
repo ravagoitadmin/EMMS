@@ -2,6 +2,7 @@
 
 namespace App\Services\Maintenance;
 
+use App\Enums\LifecycleStatus;
 use App\Mail\MaintenanceTaskDueMail;
 use App\Models\AppUser;
 use Illuminate\Support\Carbon;
@@ -26,7 +27,7 @@ class OverdueMaintenanceNotificationService
             ->join('departments as dep', 'dep.dep_id', '=', 'mt.mt_dep_id')
             ->join('tasks as t', 't.task_id', '=', 'mt.mt_task_id')
             ->join('statuses as s', 's.status_id', '=', 'mt.mt_status_id')
-            ->where('eqm.eqm_is_active', 1)
+            ->where(fn ($inService) => $inService->whereNull('eqm.lifecycle_status_id')->orWhereNotIn('eqm.lifecycle_status_id', LifecycleStatus::outOfService()))
             ->whereNull('mt.mt_closed_dt')
             ->where('mt.mt_status_id', 'pnd')
             ->whereRaw('DATE(mt.mt_due_dt) < ?', [$now->toDateString()])

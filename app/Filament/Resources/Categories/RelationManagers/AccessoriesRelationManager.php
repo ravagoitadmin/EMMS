@@ -10,7 +10,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DetachAction;
 use Filament\Actions\DetachBulkAction;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -48,10 +47,10 @@ class AccessoriesRelationManager extends RelationManager
         }
 
         AssetEditLog::create([
-            'asset_id'     => $equipment->getKey(),
+            'asset_id' => $equipment->getKey(),
             'performed_by' => Auth::id(),
-            'logged_at'    => now(),
-            'changes'      => [
+            'logged_at' => now(),
+            'changes' => [
                 'categories' => [
                     'old' => $oldTags,
                     'new' => $newTags,
@@ -64,9 +63,9 @@ class AccessoriesRelationManager extends RelationManager
     {
         return $table
             ->inverseRelationship('categories')
-            ->modifyQueryUsing(fn(Builder $query): Builder => $query->accessories())
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->accessories())
             ->recordTitle(
-                fn(Equipment $record): string => "{$record->eqm_prc_code} - {$record->eqm_name}"
+                fn (Equipment $record): string => "{$record->eqm_prc_code} - {$record->eqm_name}"
             )
             ->recordTitleAttribute('eqm_name')
             ->columns([
@@ -86,41 +85,33 @@ class AccessoriesRelationManager extends RelationManager
                     ->toggleable()
                     ->searchable()
                     ->visible(
-                        fn(): bool => EquipmentResource::getConfiguration()?->getKey() !== 'equipment'
+                        fn (): bool => EquipmentResource::getConfiguration()?->getKey() !== 'equipment'
                     ),
-                TextColumn::make('eqm_is_active')
-                    ->label('Status')
-                    ->toggleable()
-                    ->sortable()
-                    ->badge()
-                    ->formatStateUsing(fn(bool $state): string => $state ? 'Active' : 'Inactive')
-                    ->icon(fn(bool $state): Heroicon => $state ? Heroicon::CheckCircle : Heroicon::XCircle)
-                    ->color(fn(bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('lifecycleStatus.status_title')
                     ->label('Lifecycle Status')
                     ->toggleable()
                     ->sortable()
                     ->badge()
-                    ->icon(fn($record) => $record->lifecycleStatus?->status_icon)
-                    ->color(fn($record) => $record->lifecycleStatus?->status_color),
+                    ->icon(fn ($record) => $record->lifecycleStatus?->status_icon)
+                    ->color(fn ($record) => $record->lifecycleStatus?->status_color),
                 TextColumn::make('location.name')
                     ->label('Location')
                     // Allocated accessories show their parent equipment's location.
-                    ->state(fn($record): ?string => $record->effectiveLocation()?->full_path)
-                    ->description(fn($record): ?string => $record->isAllocatedAccessory() ? "via {$record->parent?->eqm_name}" : null)
+                    ->state(fn ($record): ?string => $record->effectiveLocation()?->full_path)
+                    ->description(fn ($record): ?string => $record->isAllocatedAccessory() ? "via {$record->parent?->eqm_name}" : null)
                     ->toggleable()
                     ->searchable()
                     ->sortable(),
             ])
             ->recordUrl(
-                fn(Equipment $record): string => EquipmentResource::withConfiguration(
+                fn (Equipment $record): string => EquipmentResource::withConfiguration(
                     'accessories',
-                    fn(): string => EquipmentResource::getUrl('view', ['record' => $record]),
+                    fn (): string => EquipmentResource::getUrl('view', ['record' => $record]),
                 ),
             )
             ->headerActions([
                 AttachAction::make('associate_accessories_to_tag')
-                    ->authorize(fn(): bool => Auth::user()->hasPermissionTo('Update:EquipmentResource'))
+                    ->authorize(fn (): bool => Auth::user()->hasPermissionTo('Update:EquipmentResource'))
                     ->label('Associate')
                     ->modalHeading('Associate Accessories to Tag')
                     ->modalSubmitActionLabel('Associate')
@@ -128,11 +119,11 @@ class AccessoriesRelationManager extends RelationManager
                     ->multiple()
                     ->recordSelectSearchColumns(['eqm_name', 'eqm_prc_code'])
                     ->recordSelectOptionsQuery(
-                        fn(Builder $query): Builder => $query
+                        fn (Builder $query): Builder => $query
                             ->accessories()
                             ->whereDoesntHave(
                                 'categories',
-                                fn(Builder $q) => $q->whereKey($this->getOwnerRecord()->getKey()),
+                                fn (Builder $q) => $q->whereKey($this->getOwnerRecord()->getKey()),
                             )
                     )
                     ->before(function (array $data): void {
@@ -154,11 +145,11 @@ class AccessoriesRelationManager extends RelationManager
                             ]);
                         }
 
-                        $inactive = $accessories->filter(fn(Equipment $item) => ! $item->eqm_is_active);
+                        $inactive = $accessories->filter(fn (Equipment $item) => ! $item->isInService());
 
                         if ($inactive->isNotEmpty()) {
                             throw ValidationException::withMessages([
-                                'recordId' => 'Inactive accessories cannot be assigned (' . $inactive->pluck('eqm_name')->implode(', ') . ').',
+                                'recordId' => 'Retired or disposed accessories cannot be assigned ('.$inactive->pluck('eqm_name')->implode(', ').').',
                             ]);
                         }
 
@@ -185,12 +176,12 @@ class AccessoriesRelationManager extends RelationManager
 
                         Equipment::whereIn('eqm_id', $accessoryIds)
                             ->get()
-                            ->each(fn(Equipment $equipment) => $this->logCategoryChange($equipment, $categoryName, attached: true));
+                            ->each(fn (Equipment $equipment) => $this->logCategoryChange($equipment, $categoryName, attached: true));
                     }),
             ])
             ->recordActions([
                 DetachAction::make()
-                    ->after(fn(Equipment $record) => $this->logCategoryChange(
+                    ->after(fn (Equipment $record) => $this->logCategoryChange(
                         $record,
                         $this->getOwnerRecord()->eqmc_name,
                         attached: false,
@@ -202,7 +193,7 @@ class AccessoriesRelationManager extends RelationManager
                         ->after(function (Collection $records): void {
                             $categoryName = $this->getOwnerRecord()->eqmc_name;
 
-                            $records->each(fn(Equipment $equipment) => $this->logCategoryChange(
+                            $records->each(fn (Equipment $equipment) => $this->logCategoryChange(
                                 $equipment,
                                 $categoryName,
                                 attached: false,

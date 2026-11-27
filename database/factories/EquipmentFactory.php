@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\LifecycleStatus;
 use App\Models\AssetType;
 use App\Models\Equipment;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -19,7 +20,6 @@ class EquipmentFactory extends Factory
         return [
             'eqm_name' => fake()->words(3, true),
             'eqm_prc_code' => strtoupper(fake()->unique()->bothify('AST-####')),
-            'eqm_is_active' => true,
             'eqm_eqmm_id' => null,
             'parent_id' => null,
         ];
@@ -53,6 +53,16 @@ class EquipmentFactory extends Factory
                 'asset_type_id' => $type->id,
             ];
         });
+    }
+
+    public function retired(): static
+    {
+        return $this->state(['lifecycle_status_id' => LifecycleStatus::Retired->value]);
+    }
+
+    public function disposed(): static
+    {
+        return $this->state(['lifecycle_status_id' => LifecycleStatus::Disposed->value]);
     }
 
     public function accessory(?Equipment $parent = null): static

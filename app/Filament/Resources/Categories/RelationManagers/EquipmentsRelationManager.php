@@ -8,6 +8,7 @@ use App\Models\AssetType;
 use App\Models\Equipment;
 use App\Models\EquipmentBrand;
 use App\Models\EquipmentModel;
+use App\Models\Status;
 use Filament\Actions\AttachAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -18,7 +19,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -59,10 +59,10 @@ class EquipmentsRelationManager extends RelationManager
         }
 
         AssetEditLog::create([
-            'asset_id'     => $equipment->getKey(),
+            'asset_id' => $equipment->getKey(),
             'performed_by' => Auth::id(),
-            'logged_at'    => now(),
-            'changes'      => [
+            'logged_at' => now(),
+            'changes' => [
                 'categories' => [
                     'old' => $oldTags,
                     'new' => $newTags,
@@ -105,9 +105,9 @@ class EquipmentsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn(Builder $query): Builder => $query->equipmentAssets())
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->equipmentAssets())
             ->recordTitle(
-                fn(Equipment $record): string => "{$record->eqm_prc_code} - {$record->eqm_name}"
+                fn (Equipment $record): string => "{$record->eqm_prc_code} - {$record->eqm_name}"
             )
             ->recordTitleAttribute('eqm_name')
             ->columns([
@@ -121,21 +121,13 @@ class EquipmentsRelationManager extends RelationManager
                     ->toggleable()
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('eqm_is_active')
-                    ->label('Status')
-                    ->toggleable()
-                    ->sortable()
-                    ->badge()
-                    ->formatStateUsing(fn(bool $state): string => $state ? 'Active' : 'Inactive')
-                    ->icon(fn(bool $state): Heroicon => $state ? Heroicon::CheckCircle : Heroicon::XCircle)
-                    ->color(fn(bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('lifecycleStatus.status_title')
                     ->label('Lifecycle Status')
                     ->toggleable()
                     ->sortable()
                     ->badge()
-                    ->icon(fn($record) => $record->lifecycleStatus?->status_icon)
-                    ->color(fn($record) => $record->lifecycleStatus?->status_color),
+                    ->icon(fn ($record) => $record->lifecycleStatus?->status_icon)
+                    ->color(fn ($record) => $record->lifecycleStatus?->status_color),
                 TextColumn::make('location.name')
                     ->label('Location')
                     ->toggleable()
@@ -143,20 +135,17 @@ class EquipmentsRelationManager extends RelationManager
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('eqm_is_active')
-                    ->label('Status')
-                    ->options([
-                        1 => 'Active',
-                        0 => 'Inactive',
-                    ]),
+                SelectFilter::make('lifecycle_status_id')
+                    ->label('Lifecycle Status')
+                    ->options(fn (): array => Status::lifecycleOptions()),
             ])
-            ->recordUrl(fn(Equipment $record): string => EquipmentResource::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn (Equipment $record): string => EquipmentResource::getUrl('view', ['record' => $record]))
             ->headerActions([
                 CreateAction::make()
                     ->label('New Equipment')
                     ->modalHeading('Create Equipment Unit'),
                 AttachAction::make('associate_equipment_to_tag')
-                    ->authorize(fn(): bool => Auth::user()->hasPermissionTo('Update:EquipmentResource'))
+                    ->authorize(fn (): bool => Auth::user()->hasPermissionTo('Update:EquipmentResource'))
                     ->label('Associate')
                     ->modalHeading('Associate Equipment to Category')
                     ->modalSubmitActionLabel('Associate')
@@ -164,11 +153,11 @@ class EquipmentsRelationManager extends RelationManager
                     ->multiple()
                     ->recordSelectSearchColumns(['eqm_name', 'eqm_prc_code'])
                     ->recordSelectOptionsQuery(
-                        fn(Builder $query): Builder => $query
+                        fn (Builder $query): Builder => $query
                             ->equipmentAssets()
                             ->whereDoesntHave(
                                 'categories',
-                                fn(Builder $q) => $q->whereKey($this->getOwnerRecord()->getKey()),
+                                fn (Builder $q) => $q->whereKey($this->getOwnerRecord()->getKey()),
                             )
                     )
                     ->before(function (array $data) {
@@ -190,11 +179,11 @@ class EquipmentsRelationManager extends RelationManager
                             ]);
                         }
 
-                        $inactive = $equipments->filter(fn(Equipment $item) => ! $item->eqm_is_active);
+                        $inactive = $equipments->filter(fn (Equipment $item) => ! $item->isInService());
 
                         if ($inactive->isNotEmpty()) {
                             throw ValidationException::withMessages([
-                                'recordId' => 'Inactive equipment cannot be assigned (' . $inactive->pluck('eqm_name')->implode(', ') . ').',
+                                'recordId' => 'Retired or disposed equipment cannot be assigned ('.$inactive->pluck('eqm_name')->implode(', ').').',
                             ]);
                         }
 
@@ -221,12 +210,12 @@ class EquipmentsRelationManager extends RelationManager
 
                         Equipment::whereIn('eqm_id', $equipmentIds)
                             ->get()
-                            ->each(fn(Equipment $equipment) => $this->logCategoryChange($equipment, $categoryName, attached: true));
+                            ->each(fn (Equipment $equipment) => $this->logCategoryChange($equipment, $categoryName, attached: true));
                     }),
             ])
             ->recordActions([
                 DetachAction::make()
-                    ->after(fn(Equipment $record) => $this->logCategoryChange(
+                    ->after(fn (Equipment $record) => $this->logCategoryChange(
                         $record,
                         $this->getOwnerRecord()->eqmc_name,
                         attached: false,
@@ -238,7 +227,7 @@ class EquipmentsRelationManager extends RelationManager
                         ->after(function (Collection $records): void {
                             $categoryName = $this->getOwnerRecord()->eqmc_name;
 
-                            $records->each(fn(Equipment $equipment) => $this->logCategoryChange(
+                            $records->each(fn (Equipment $equipment) => $this->logCategoryChange(
                                 $equipment,
                                 $categoryName,
                                 attached: false,

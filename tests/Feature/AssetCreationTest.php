@@ -21,7 +21,7 @@ use Tests\TestCase;
 
 class AssetCreationTest extends TestCase
 {
-    private const FIELDS = ['eqm_prc_code', 'eqm_name', 'eqm_is_active'];
+    private const FIELDS = ['eqm_prc_code', 'eqm_name'];
 
     protected function setUp(): void
     {
@@ -120,7 +120,7 @@ class AssetCreationTest extends TestCase
         $this->assertFalse(Gate::forUser($manager)->allows('create', Equipment::class));
     }
 
-    public function test_the_code_name_and_active_fields_can_be_entered_when_creating_an_asset(): void
+    public function test_the_code_and_name_fields_can_be_entered_when_creating_an_asset(): void
     {
         $fields = $this->assetFields('create');
 
@@ -133,10 +133,9 @@ class AssetCreationTest extends TestCase
 
         $this->assertTrue($fields['eqm_prc_code']->isRequired());
         $this->assertTrue($fields['eqm_name']->isRequired());
-        $this->assertTrue($fields['eqm_is_active']->getDefaultState());
     }
 
-    public function test_the_code_name_and_active_fields_are_locked_and_never_saved_when_a_non_super_admin_edits(): void
+    public function test_the_code_and_name_fields_are_locked_and_never_saved_when_a_non_super_admin_edits(): void
     {
         $manager = $this->makeUser('manager');
         $manager->givePermissionTo(Permission::findOrCreate('Update:EquipmentResource', 'web'));
@@ -148,7 +147,7 @@ class AssetCreationTest extends TestCase
         }
     }
 
-    public function test_only_a_super_admin_can_change_the_code_name_and_active_fields_when_editing(): void
+    public function test_only_a_super_admin_can_change_the_code_and_name_fields_when_editing(): void
     {
         $this->actingAs($this->makeUser('super_admin'));
 

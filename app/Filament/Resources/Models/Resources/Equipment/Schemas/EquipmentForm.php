@@ -6,7 +6,6 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -31,11 +30,6 @@ class EquipmentForm
                                     ->label('Equipment Name')
                                     ->disabled()
                                     ->dehydrated(),
-                                Toggle::make('eqm_is_active')
-                                    ->label('Active')
-                                    ->disabled()
-                                    ->dehydrated()
-                                    ->columnSpan(1),
                             ]),
                     ]),
 

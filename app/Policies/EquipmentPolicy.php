@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\LifecycleStatus;
 use App\Models\Equipment;
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Illuminate\Foundation\Auth\User as AuthUser;
@@ -172,10 +173,16 @@ class EquipmentPolicy
         return $authUser->can('PreviewExport:EquipmentResource');
     }
 
+    /*
+     * Lifecycle actions. Each one is offered from any status except its own, so a Retired asset can be put back in
+     * service; a Disposed asset is final and gets none of them.
+     */
+
     public function allocate(AuthUser $authUser, Equipment $equipment): bool
     {
         return $equipment->isAccessory()
-            && $equipment->lifecycle_status_id !== 'alc'
+            && ! $equipment->isDisposed()
+            && $equipment->lifecycle() !== LifecycleStatus::Allocated
             && $authUser->can('Allocate:EquipmentResource');
     }
 
@@ -183,19 +190,34 @@ class EquipmentPolicy
     {
         // Equipment and service vehicles are deployed; an accessory is allocated to an equipment instead.
         return ($equipment->isEquipmentAsset() || $equipment->isServiceVehicle())
-            && $equipment->lifecycle_status_id !== 'dep'
+            && ! $equipment->isDisposed()
+            && $equipment->lifecycle() !== LifecycleStatus::Deployed
             && $authUser->can('Deploy:EquipmentResource');
     }
 
     public function setToIdle(AuthUser $authUser, Equipment $equipment): bool
     {
-        return $equipment->lifecycle_status_id !== 'idle'
+        return ! $equipment->isDisposed()
+            && $equipment->lifecycle() !== LifecycleStatus::Idle
             && $authUser->can('SetToIdle:EquipmentResource');
     }
 
     public function setToMaintenance(AuthUser $authUser, Equipment $equipment): bool
     {
-        return $equipment->lifecycle_status_id !== 'udmt'
+        return ! $equipment->isDisposed()
+            && $equipment->lifecycle() !== LifecycleStatus::UnderMaintenance
             && $authUser->can('SetToMaintenance:EquipmentResource');
+    }
+
+    public function retire(AuthUser $authUser, Equipment $equipment): bool
+    {
+        return $equipment->isInService()
+            && $authUser->can('Retire:EquipmentResource');
+    }
+
+    public function dispose(AuthUser $authUser, Equipment $equipment): bool
+    {
+        return ! $equipment->isDisposed()
+            && $authUser->can('Dispose:EquipmentResource');
     }
 }
