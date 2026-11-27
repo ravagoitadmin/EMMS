@@ -84,22 +84,63 @@ class SyncEquipmentSheetTest extends AssetMovementTestCase
         $this->artisan('equipments:sync-sheet', ['--execute' => true])->assertSuccessful();
     }
 
-    public function test_units_that_are_not_in_the_sheet_are_added_below_the_last_row_and_unknown_sheet_rows_are_left_alone(): void
+    public function test_the_sheet_mirrors_ems_missing_units_are_added_and_rows_ems_does_not_have_are_removed(): void
     {
         $known = $this->unit(['eqm_name' => 'Crane 3', 'eqm_prc_code' => 'CR3', 'lifecycle_status_id' => 'dep']);
         $missing = $this->unit(['eqm_name' => 'Not in the sheet', 'eqm_prc_code' => 'NIS', 'lifecycle_status_id' => 'ret']);
         $this->sheetHas([
-            ['99999', '', 'RAVAGO RENTALS', '1010', 'idle'],
+            ['99999', '', 'RAVAGO RENTALS', '1010', ''],
             [(string) $known->eqm_id, (string) $known->asset_type_id, 'Crane 3', 'CR3', 'dep'],
+            ['', '', 'A note without an eqm_id', '', ''],
+            ['99998', '', 'SMART RIGS CRANE CORP', '1020', ''],
         ]);
         $this->sheet->shouldNotReceive('writeCells');
-        $this->sheet->shouldReceive('appendRows')->once()->with('equipments', 4, [
+        $this->sheet->shouldReceive('appendRows')->once()->with('equipments', 6, [
             [$missing->eqm_id, (int) $missing->asset_type_id, 'Not in the sheet', 'NIS', 'ret'],
-        ]);
+        ])->ordered();
+        // Removed after the new rows are added, so the row numbers read at the start still point at the right rows.
+        $this->sheet->shouldReceive('deleteRows')->once()->with('equipments', [2, 5])->ordered();
 
         $this->artisan('equipments:sync-sheet', ['--execute' => true])
-            ->expectsOutputToContain('added 1 row(s)')
+            ->expectsOutputToContain('added 1 row(s) and removed 2 row(s)')
             ->assertSuccessful();
+    }
+
+    public function test_the_preview_lists_the_rows_to_remove_without_removing_them(): void
+    {
+        $known = $this->unit(['eqm_name' => 'Known', 'eqm_prc_code' => 'KN1', 'lifecycle_status_id' => 'dep']);
+        $this->sheetHas([
+            [(string) $known->eqm_id, (string) $known->asset_type_id, 'Known', 'KN1', 'dep'],
+            ['99999', '', 'RAVAGO RENTALS', '1010', ''],
+        ]);
+        $this->sheet->shouldNotReceive('deleteRows');
+
+        $this->artisan('equipments:sync-sheet')
+            ->expectsOutputToContain('Rows to remove (sheet row numbers): 3')
+            ->expectsOutputToContain('Preview only')
+            ->assertSuccessful();
+    }
+
+    public function test_too_many_rows_to_remove_stop_without_writing(): void
+    {
+        $known = $this->unit(['eqm_name' => 'Known', 'eqm_prc_code' => 'KN2', 'lifecycle_status_id' => 'dep']);
+        $this->sheetHas([
+            [(string) $known->eqm_id, (string) $known->asset_type_id, 'Known', 'KN2', 'dep'],
+            ['99997', '', 'A', '1', ''],
+            ['99998', '', 'B', '2', ''],
+        ]);
+        $this->sheet->shouldNotReceive('deleteRows');
+        $this->sheet->shouldNotReceive('writeCells');
+
+        $this->artisan('equipments:sync-sheet', ['--execute' => true, '--max-remove' => 1])
+            ->expectsOutputToContain('2 rows would be removed, more than --max-remove=1. Nothing was written.')
+            ->assertFailed();
+    }
+
+    public function test_rows_are_deleted_bottom_first_with_neighbours_together_and_never_the_header(): void
+    {
+        $this->assertSame([[9, 10], [5, 5], [2, 3]], GoogleSheetWriter::deletionRanges([2, 3, 5, 9, 10, 1, 3]));
+        $this->assertSame([], GoogleSheetWriter::deletionRanges([1]));
     }
 
     public function test_a_new_row_follows_the_column_order_of_the_sheet_and_leaves_an_unlisted_type_empty(): void

@@ -34,7 +34,7 @@ class LoginLogoSizeTest extends TestCase
     {
         $this->requestFor('login');
 
-        $this->assertTrue(AdminPanelProvider::isLoginPage());
+        $this->assertTrue(AdminPanelProvider::isSignInPage());
         $this->assertSame('8rem', $this->logoHeight());
     }
 
@@ -43,8 +43,19 @@ class LoginLogoSizeTest extends TestCase
         // A failed sign-in redraws the page through a Livewire update request, whose own URL is not /login.
         $this->requestFor('login', livewireUpdate: true);
 
-        $this->assertTrue(AdminPanelProvider::isLoginPage());
+        $this->assertTrue(AdminPanelProvider::isSignInPage());
         $this->assertSame('8rem', $this->logoHeight());
+    }
+
+    public function test_the_forgot_and_reset_password_pages_show_the_big_logo(): void
+    {
+        foreach (['password-reset/request', 'password-reset/reset'] as $path) {
+            $this->requestFor($path);
+            $this->assertSame('8rem', $this->logoHeight(), $path);
+
+            $this->requestFor($path, livewireUpdate: true);
+            $this->assertSame('8rem', $this->logoHeight(), "{$path} after a Livewire update");
+        }
     }
 
     public function test_every_other_page_shows_the_small_logo(): void

@@ -14,9 +14,10 @@ class SyncEquipmentSheet extends Command
 {
     protected $signature = 'equipments:sync-sheet
         {--execute : Really update the sheet; without it the command only shows what would change}
-        {--max-cells=10000 : Stop without writing when more cells than this would change (a safety limit)}';
+        {--max-cells=10000 : Stop without writing when more cells than this would change (a safety limit)}
+        {--max-remove=1000 : Stop without writing when more rows than this would be removed (a safety limit)}';
 
-    protected $description = 'Make the "equipments" sheet match the equipment in EMS: update the values of its rows and add the units it does not have yet';
+    protected $description = 'Make the "equipments" sheet match the equipment in EMS: update its rows, add the units it does not have yet and remove the rows EMS does not have';
 
     public function handle(EquipmentSheetSync $sync): int
     {
@@ -37,13 +38,17 @@ class SyncEquipmentSheet extends Command
             ['  already up to date', $counts['unchanged']],
             ['  to update', $counts['rows_to_update']],
             ['Cells to update', $counts['cells_to_update']],
-            ['Sheet rows EMS does not know (left alone)', $counts['not_in_ems']],
+            ['Sheet rows whose eqm_id is not in EMS (rows to remove)', $counts['rows_to_remove']],
             ['EMS equipment not in the sheet yet (rows to add)', $counts['rows_to_add']],
             ['eqm_id listed twice in the sheet (both updated)', $counts['duplicate_ids']],
         ]);
 
         if ($plan['unknown_types'] !== []) {
             $this->warn('The asset_types tab of the sheet does not list asset type id '.implode(', ', $plan['unknown_types']).', so asset_type_id was left as it is for those rows. Add the type to that tab first.');
+        }
+
+        if ($plan['rows_to_remove'] !== [] && ! $this->option('execute')) {
+            $this->line('Rows to remove (sheet row numbers): '.implode(', ', array_slice($plan['rows_to_remove'], 0, 30)).(count($plan['rows_to_remove']) > 30 ? ', ...' : ''));
         }
 
         if ($plan['cells'] !== [] && ! $this->option('execute')) {
@@ -71,6 +76,12 @@ class SyncEquipmentSheet extends Command
             return self::FAILURE;
         }
 
+        if ($counts['rows_to_remove'] > (int) $this->option('max-remove')) {
+            $this->error("{$counts['rows_to_remove']} rows would be removed, more than --max-remove={$this->option('max-remove')}. Nothing was written. Check the preview, then raise --max-remove if it is right.");
+
+            return self::FAILURE;
+        }
+
         try {
             $written = $sync->apply($plan);
         } catch (Throwable $exception) {
@@ -80,12 +91,12 @@ class SyncEquipmentSheet extends Command
             return self::FAILURE;
         }
 
-        $message = "Updated {$written['updated']} cell(s) in {$counts['rows_to_update']} row(s) and added {$written['added']} row(s) in the equipments sheet";
+        $message = "Updated {$written['updated']} cell(s) in {$counts['rows_to_update']} row(s), added {$written['added']} row(s) and removed {$written['removed']} row(s) in the equipments sheet";
 
-        if ($written['updated'] + $written['added'] > 0) {
+        if ($written['updated'] + $written['added'] + $written['removed'] > 0) {
             activity('Sync')
                 ->event('updated')
-                ->withProperties(['cells' => $written['updated'], 'rows' => $counts['rows_to_update'], 'rows_added' => $written['added']])
+                ->withProperties(['cells' => $written['updated'], 'rows' => $counts['rows_to_update'], 'rows_added' => $written['added'], 'rows_removed' => $written['removed']])
                 ->log($message);
         }
 

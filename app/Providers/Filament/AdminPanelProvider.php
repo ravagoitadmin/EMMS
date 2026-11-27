@@ -149,7 +149,7 @@ class AdminPanelProvider extends PanelProvider
             })
             // Bigger on the sign-in page. Worked out when the logo is drawn, from the page's own address: after a failed
             // sign-in the page is redrawn through a Livewire update request, whose URL is not /login.
-            ->brandLogoHeight(fn (): string => self::isLoginPage() ? '8rem' : '3rem')
+            ->brandLogoHeight(fn (): string => self::isSignInPage() ? '8rem' : '3rem')
             ->favicon(function () {
                 try {
                     $favicon = SiteSetting::instance()->site_favicon;
@@ -286,11 +286,14 @@ class AdminPanelProvider extends PanelProvider
     }
 
     /**
-     * Whether the page being drawn is the sign-in page, also when it is redrawn by a Livewire update request.
+     * Whether the page being drawn is one of the sign-in pages (sign in, forgot password, reset password), also
+     * when it is redrawn by a Livewire update request.
      */
-    public static function isLoginPage(): bool
+    public static function isSignInPage(): bool
     {
         // For a Livewire update request this is the address of the page it came from, otherwise the request's own.
-        return trim((string) Livewire::originalPath(), '/') === 'login';
+        $path = trim((string) Livewire::originalPath(), '/');
+
+        return $path === 'login' || $path === 'password-reset' || str_starts_with($path, 'password-reset/');
     }
 }

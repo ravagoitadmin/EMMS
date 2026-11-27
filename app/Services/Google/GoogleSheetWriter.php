@@ -4,14 +4,16 @@ namespace App\Services\Google;
 
 use Google\Client as GoogleClient;
 use Google\Service\Sheets;
+use Google\Service\Sheets\BatchUpdateSpreadsheetRequest;
 use Google\Service\Sheets\BatchUpdateValuesRequest;
+use Google\Service\Sheets\Request;
 use Google\Service\Sheets\ValueRange;
 use RuntimeException;
 
 /**
- * Reads a tab of the AppSheet spreadsheet and changes single cells of it, through the service account in
- * storage/google-sheets-credentials.json (it needs Editor access on the spreadsheet). Only cells that are passed
- * are touched: it never adds, moves or deletes rows.
+ * Reads a tab of the AppSheet spreadsheet and changes it, through the service account in
+ * storage/google-sheets-credentials.json (it needs Editor access on the spreadsheet): single cells, rows added
+ * below the last one, and whole rows deleted. Nothing else is touched.
  */
 class GoogleSheetWriter
 {
@@ -72,6 +74,77 @@ class GoogleSheetWriter
 
             $firstFreeRow += count($chunk);
         }
+    }
+
+    /**
+     * Deletes whole rows (1-based row numbers) from a tab. Neighbouring rows are deleted together, and the bottom
+     * rows go first so the numbers of the rows still to delete do not shift.
+     *
+     * @param  list<int>  $rowNumbers
+     */
+    public function deleteRows(string $tab, array $rowNumbers): void
+    {
+        $ranges = self::deletionRanges($rowNumbers);
+
+        if ($ranges === []) {
+            return;
+        }
+
+        $sheetId = $this->sheetId($tab);
+
+        foreach (array_chunk($ranges, self::BATCH) as $chunk) {
+            $request = new BatchUpdateSpreadsheetRequest;
+            $request->setRequests(array_map(fn (array $range): Request => new Request([
+                'deleteDimension' => [
+                    'range' => [
+                        'sheetId' => $sheetId,
+                        'dimension' => 'ROWS',
+                        'startIndex' => $range[0] - 1,
+                        'endIndex' => $range[1],
+                    ],
+                ],
+            ]), $chunk));
+
+            $this->service()->spreadsheets->batchUpdate($this->spreadsheetId(), $request);
+        }
+    }
+
+    /**
+     * Rows to delete as [first, last] ranges of neighbouring rows, bottom range first. The header row (1) is never
+     * deleted.
+     *
+     * @param  list<int>  $rowNumbers
+     * @return list<array{0: int, 1: int}>
+     */
+    public static function deletionRanges(array $rowNumbers): array
+    {
+        $rowNumbers = array_values(array_unique(array_filter($rowNumbers, fn (int $row): bool => $row > 1)));
+        rsort($rowNumbers);
+        $ranges = [];
+
+        foreach ($rowNumbers as $row) {
+            $last = array_key_last($ranges);
+
+            if ($last !== null && $ranges[$last][0] === $row + 1) {
+                $ranges[$last][0] = $row;
+            } else {
+                $ranges[] = [$row, $row];
+            }
+        }
+
+        return $ranges;
+    }
+
+    /** The numeric id of a tab (the gid in its URL), needed to delete rows. */
+    private function sheetId(string $tab): int
+    {
+        foreach ($this->service()->spreadsheets->get($this->spreadsheetId(), ['fields' => 'sheets.properties'])->getSheets() as $sheet) {
+            if ($sheet->getProperties()->getTitle() === $tab) {
+                return (int) $sheet->getProperties()->getSheetId();
+            }
+        }
+
+        throw new RuntimeException("The \"{$tab}\" tab does not exist.");
     }
 
     private function range(string $tab, string $cells): string

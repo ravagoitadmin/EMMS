@@ -10,9 +10,9 @@ use RuntimeException;
  *
  * After a run the sheet has every unit of equipment_units: rows are matched by eqm_id, the values of rows that are
  * already there are updated (asset_type_id, eqm_name, eqm_prc_code, lifecycle_status_id; eqm_id never), and units that are
- * not there yet are added below the last row. Rows are never moved or deleted, a sheet row EMS does not know is left
- * alone, and an empty value in EMS never blanks a cell in the sheet. An asset_type_id is only written when the
- * sheet's asset_types tab lists that id (it is a reference to that tab).
+ * not there yet are added below the last row, and rows whose eqm_id is not in EMS are removed, so the sheet mirrors
+ * equipment_units. Rows without an eqm_id are left alone, and an empty value in EMS never blanks a cell in the
+ * sheet. An asset_type_id is only written when the sheet's asset_types tab lists that id (it is a reference to that tab).
  */
 class EquipmentSheetSync
 {
@@ -28,8 +28,9 @@ class EquipmentSheetSync
      *
      * @return array{
      *     cells: list<array{cell: string, value: string|int, row: int, id: int, column: string, from: string, to: string}>,
-     *     counts: array{sheet_rows: int, matched: int, unchanged: int, rows_to_update: int, cells_to_update: int, not_in_ems: int, rows_to_add: int, cells_to_add: int, duplicate_ids: int},
+     *     counts: array{sheet_rows: int, matched: int, unchanged: int, rows_to_update: int, cells_to_update: int, not_in_ems: int, rows_to_remove: int, rows_to_add: int, cells_to_add: int, duplicate_ids: int},
      *     new_rows: list<list<string|int>>,
+     *     rows_to_remove: list<int>,
      *     first_free_row: int,
      *     unknown_types: list<int>
      * }
@@ -71,11 +72,13 @@ class EquipmentSheetSync
         $changedRows = [];
         $matched = 0;
         $notInEms = 0;
+        $rowsToRemove = [];
         $unknownTypes = [];
 
         foreach ($sheetRows as $id => $rows) {
             if (! isset($equipment[$id])) {
                 $notInEms++;
+                array_push($rowsToRemove, ...array_column($rows, 'row'));
 
                 continue;
             }
@@ -128,24 +131,29 @@ class EquipmentSheetSync
                 'rows_to_update' => count($changedRows),
                 'cells_to_update' => count($cells),
                 'not_in_ems' => $notInEms,
+                'rows_to_remove' => count($rowsToRemove),
                 'rows_to_add' => count($newRows),
                 'cells_to_add' => count($newRows) * (count(self::VALUE_COLUMNS) + 1),
                 'duplicate_ids' => $duplicates,
             ],
             'new_rows' => $newRows,
+            'rows_to_remove' => $rowsToRemove,
             'first_free_row' => count($values) + 1,
             'unknown_types' => array_keys($unknownTypes),
         ];
     }
 
     /**
-     * Writes the updated cells and adds the new rows of a plan.
+     * Writes the updated cells, adds the new rows and removes the rows EMS does not have, in that order: cells and
+     * new rows use the row numbers read at the start, which removing rows (bottom first) would change.
      *
-     * @param  array{cells: list<array{cell: string, value: string|int}>, new_rows: list<list<string|int>>, first_free_row: int}  $plan
-     * @return array{updated: int, added: int}
+     * @param  array{cells: list<array{cell: string, value: string|int}>, new_rows: list<list<string|int>>, rows_to_remove?: list<int>, first_free_row: int}  $plan
+     * @return array{updated: int, added: int, removed: int}
      */
     public function apply(array $plan): array
     {
+        $rowsToRemove = $plan['rows_to_remove'] ?? [];
+
         if ($plan['cells'] !== []) {
             $this->sheet->writeCells($this->tab(), array_map(fn (array $cell): array => ['cell' => $cell['cell'], 'value' => $cell['value']], $plan['cells']));
         }
@@ -154,7 +162,11 @@ class EquipmentSheetSync
             $this->sheet->appendRows($this->tab(), $plan['first_free_row'], $plan['new_rows']);
         }
 
-        return ['updated' => count($plan['cells']), 'added' => count($plan['new_rows'])];
+        if ($rowsToRemove !== []) {
+            $this->sheet->deleteRows($this->tab(), $rowsToRemove);
+        }
+
+        return ['updated' => count($plan['cells']), 'added' => count($plan['new_rows']), 'removed' => count($rowsToRemove)];
     }
 
     /**
