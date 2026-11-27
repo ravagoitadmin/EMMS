@@ -6,7 +6,9 @@ use App\Enums\LifecycleStatus;
 use App\Filament\Exports\EquipmentExporter;
 use App\Filament\Resources\Equipment\EquipmentResource;
 use App\Filament\Support\ExportPreviewAction;
+use App\Models\AssetType;
 use App\Models\Equipment;
+use App\Models\Status;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ExportAction;
 use Filament\Resources\Pages\ListRecords;
@@ -32,59 +34,68 @@ class ListEquipment extends ListRecords
         ];
     }
 
-    /** @var array{total:int, active:int, inactive:int}|null */
+    /** @var array<string, int>|null number of assets per lifecycle status id, plus 'total' */
     protected ?array $tabCounts = null;
 
     /**
-     * One query for all four tab badges instead of four. It starts from the resource query, so the
-     * Equipment and Accessories pages count only their own assets, the same rows the table shows.
+     * One grouped query for all the tab badges. It starts from the resource query, so the Equipment,
+     * Accessories and Service Vehicles pages count only their own assets, the same rows the table shows.
      *
-     * @return array{total: int, in_service: int, retired: int, disposed: int}
+     * @return array<string, int>
      */
     protected function tabCounts(): array
     {
         if ($this->tabCounts === null) {
-            $row = static::getResource()::getEloquentQuery()
+            $counts = static::getResource()::getEloquentQuery()
                 ->withoutEagerLoads()
-                ->selectRaw('COUNT(*) as total, SUM(lifecycle_status_id = ?) as retired, SUM(lifecycle_status_id = ?) as disposed', [
-                    LifecycleStatus::Retired->value,
-                    LifecycleStatus::Disposed->value,
-                ])
-                ->first();
+                ->toBase()
+                ->selectRaw('lifecycle_status_id, COUNT(*) as aggregate')
+                ->groupBy('lifecycle_status_id')
+                ->pluck('aggregate', 'lifecycle_status_id')
+                ->map(fn ($count): int => (int) $count);
 
-            $this->tabCounts = [
-                'total' => (int) $row->total,
-                'in_service' => (int) $row->total - (int) $row->retired - (int) $row->disposed,
-                'retired' => (int) $row->retired,
-                'disposed' => (int) $row->disposed,
-            ];
+            $this->tabCounts = ['total' => (int) $counts->sum()] + $counts->all();
         }
 
         return $this->tabCounts;
     }
 
+    /**
+     * The lifecycle statuses an asset on this page can have: equipment and service vehicles are deployed,
+     * accessories are allocated to equipment instead (the all-assets page shows both).
+     *
+     * @return list<LifecycleStatus>
+     */
+    protected function lifecycleTabs(): array
+    {
+        $inUse = match (EquipmentResource::currentAssetTypeCode()) {
+            AssetType::ACCESSORY => [LifecycleStatus::Allocated],
+            AssetType::EQUIPMENT, AssetType::SERVICE_VEHICLE => [LifecycleStatus::Deployed],
+            default => [LifecycleStatus::Deployed, LifecycleStatus::Allocated],
+        };
+
+        return [...$inUse, LifecycleStatus::Idle, LifecycleStatus::UnderMaintenance, LifecycleStatus::Retired, LifecycleStatus::Disposed];
+    }
+
     public function getTabs(): array
     {
-        return [
+        $titles = Status::lifecycleOptions();
+        $tabs = [
             'all' => Tab::make('All')
                 ->badge(fn () => $this->tabCounts()['total']),
-
-            'in_service' => Tab::make('In service')
-                ->badge(fn () => $this->tabCounts()['in_service'])
-                ->modifyQueryUsing(fn (Builder $query) => $query->inService()),
-
-            'retired' => Tab::make('Retired')
-                ->badge(fn () => $this->tabCounts()['retired'])
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('lifecycle_status_id', LifecycleStatus::Retired->value)),
-
-            'disposed' => Tab::make('Disposed')
-                ->badge(fn () => $this->tabCounts()['disposed'])
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('lifecycle_status_id', LifecycleStatus::Disposed->value)),
         ];
+
+        foreach ($this->lifecycleTabs() as $status) {
+            $tabs[str($status->name)->snake()->toString()] = Tab::make($titles[$status->value] ?? str($status->name)->headline()->toString())
+                ->badge(fn () => $this->tabCounts()[$status->value] ?? 0)
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('lifecycle_status_id', $status->value));
+        }
+
+        return $tabs;
     }
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'in_service';
+        return 'all';
     }
 }

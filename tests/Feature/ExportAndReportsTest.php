@@ -282,24 +282,36 @@ class ExportAndReportsTest extends TestCase
             'ViewServiceVehicleList:EquipmentResource',
         ]));
 
-        Equipment::factory()->equipment()->count(3)->create();
+        Equipment::factory()->equipment()->count(2)->create(['lifecycle_status_id' => 'dep']);
+        Equipment::factory()->equipment()->create(['lifecycle_status_id' => 'udmt']);
         Equipment::factory()->equipment()->retired()->create();
-        Equipment::factory()->accessory()->count(2)->create();
+        Equipment::factory()->accessory()->create(['lifecycle_status_id' => 'alc']);
+        Equipment::factory()->accessory()->create(['lifecycle_status_id' => 'idle']);
         Equipment::factory()->accessory()->retired()->create();
         Equipment::factory()->accessory()->disposed()->create();
-        Equipment::factory()->serviceVehicle()->create();
+        Equipment::factory()->serviceVehicle()->create(['lifecycle_status_id' => 'dep']);
 
-        $badges = function (?string $configuration): array {
+        $tabs = function (?string $configuration): array {
             Filament::setCurrentResourceConfigurationKey($configuration);
 
             $tabs = Livewire::test(ListEquipment::class)->instance()->getTabs();
 
-            return array_map(fn ($tab): int => (int) $tab->getBadge(), $tabs);
+            return array_map(fn ($tab): string => $tab->getLabel().' '.(int) $tab->getBadge(), $tabs);
         };
 
-        $this->assertSame(['all' => 4, 'in_service' => 3, 'retired' => 1, 'disposed' => 0], $badges('equipment'));
-        $this->assertSame(['all' => 4, 'in_service' => 2, 'retired' => 1, 'disposed' => 1], $badges('accessories'));
-        $this->assertSame(['all' => 1, 'in_service' => 1, 'retired' => 0, 'disposed' => 0], $badges('service-vehicles'));
+        // Equipment and service vehicles are deployed; accessories are allocated instead.
+        $this->assertSame(
+            ['all' => 'All 4', 'deployed' => 'Deployed 2', 'idle' => 'Idle 0', 'under_maintenance' => 'Under Maintenance 1', 'retired' => 'Retired 1', 'disposed' => 'Disposed 0'],
+            $tabs('equipment'),
+        );
+        $this->assertSame(
+            ['all' => 'All 4', 'allocated' => 'Allocated 1', 'idle' => 'Idle 1', 'under_maintenance' => 'Under Maintenance 0', 'retired' => 'Retired 1', 'disposed' => 'Disposed 1'],
+            $tabs('accessories'),
+        );
+        $this->assertSame(
+            ['all' => 'All 1', 'deployed' => 'Deployed 1', 'idle' => 'Idle 0', 'under_maintenance' => 'Under Maintenance 0', 'retired' => 'Retired 0', 'disposed' => 'Disposed 0'],
+            $tabs('service-vehicles'),
+        );
     }
 
     public function test_export_only_includes_rows_in_the_users_department(): void
