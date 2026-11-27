@@ -20,6 +20,23 @@ class ListEquipment extends ListRecords
 {
     protected static string $resource = EquipmentResource::class;
 
+    /** The tab with every status; the other tabs show one lifecycle status each. */
+    public const ALL_TAB = 'all';
+
+    /**
+     * Switching to a status tab clears the Status filter: that tab hides the filter, and a value left in it would
+     * keep narrowing the list out of sight (Status = Retired on the Deployed tab shows nothing).
+     */
+    public function updatedActiveTab(): void
+    {
+        parent::updatedActiveTab();
+
+        // Cleared in the filter state directly: once the tab hides the filter, the table no longer lists it.
+        if ($this->activeTab !== self::ALL_TAB && filled($this->tableFilters['lifecycle_status_id']['value'] ?? null)) {
+            $this->tableFilters['lifecycle_status_id']['value'] = null;
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -81,7 +98,7 @@ class ListEquipment extends ListRecords
     {
         $titles = Status::lifecycleOptions();
         $tabs = [
-            'all' => Tab::make('All')
+            self::ALL_TAB => Tab::make('All')
                 ->badge(fn () => $this->tabCounts()['total']),
         ];
 
@@ -96,6 +113,6 @@ class ListEquipment extends ListRecords
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'all';
+        return self::ALL_TAB;
     }
 }

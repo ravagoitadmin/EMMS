@@ -88,7 +88,7 @@ class AccessoriesRelationManager extends RelationManager
                         fn (): bool => EquipmentResource::getConfiguration()?->getKey() !== 'equipment'
                     ),
                 TextColumn::make('lifecycleStatus.status_title')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->toggleable()
                     ->sortable()
                     ->badge()

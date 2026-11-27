@@ -45,7 +45,7 @@ class EquipmentsRelationManager extends RelationManager
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('lifecycleStatus.status_title')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->toggleable()
                     ->sortable()
                     ->badge()

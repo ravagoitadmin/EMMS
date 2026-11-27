@@ -24,7 +24,7 @@ class EquipmentInfolist
         return $schema
             ->components([
                 Section::make('Asset Details')
-                    ->description('Name and code cannot be edited here; the lifecycle status changes through More actions.')
+                    ->description('Name and code cannot be edited here; the status changes through More actions.')
                     ->icon('heroicon-o-cube')
                     ->columns(['default' => 1, 'xl' => 2])
                     ->inlineLabel()
@@ -37,7 +37,7 @@ class EquipmentInfolist
                             TextEntry::make('eqm_name')
                                 ->label('Asset Name'),
                             TextEntry::make('lifecycleStatus.status_title')
-                                ->label('Lifecycle Status')
+                                ->label('Status')
                                 ->badge()
                                 ->color(fn (Equipment $record) => $record->lifecycleStatus?->status_color)
                                 ->icon(fn (Equipment $record) => $record->lifecycleStatus?->status_icon)

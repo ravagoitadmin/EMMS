@@ -44,7 +44,7 @@ class EquipmentTable
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('lifecycleStatus.status_title')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->badge()
                     ->color(fn ($record): ?string => $record->lifecycleStatus?->status_color)
                     ->icon(fn ($record): ?string => $record->lifecycleStatus?->status_icon)
@@ -54,7 +54,7 @@ class EquipmentTable
             ->defaultSort('eqm_name', 'asc')
             ->filters([
                 SelectFilter::make('lifecycle_status_id')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->options(fn (): array => Status::lifecycleOptions()),
                 SelectFilter::make('eqm_eqmm_id')
                     ->label('Model')

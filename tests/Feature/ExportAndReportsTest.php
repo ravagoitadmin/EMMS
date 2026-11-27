@@ -273,6 +273,50 @@ class ExportAndReportsTest extends TestCase
             ->assertActionVisible('export');
     }
 
+    public function test_the_status_column_and_filter_show_only_on_the_all_tab(): void
+    {
+        $this->actingAs($this->makeUser('manager', [
+            'ViewAny:EquipmentResource',
+            'ViewEquipmentList:EquipmentResource',
+            'ViewAccessoryList:EquipmentResource',
+            'ViewServiceVehicleList:EquipmentResource',
+        ]));
+        Equipment::factory()->equipment()->create(['lifecycle_status_id' => 'dep']);
+
+        foreach (['equipment', 'accessories', 'service-vehicles'] as $page) {
+            Filament::setCurrentResourceConfigurationKey($page);
+            $inUseTab = $page === 'accessories' ? 'allocated' : 'deployed';
+
+            Livewire::test(ListEquipment::class)
+                ->assertTableColumnVisible('lifecycleStatus.status_title')
+                ->assertTableFilterVisible('lifecycle_status_id')
+                ->set('activeTab', $inUseTab)
+                ->assertTableColumnHidden('lifecycleStatus.status_title')
+                ->assertTableFilterHidden('lifecycle_status_id')
+                ->set('activeTab', 'retired')
+                ->assertTableColumnHidden('lifecycleStatus.status_title')
+                ->set('activeTab', 'all')
+                ->assertTableColumnVisible('lifecycleStatus.status_title');
+        }
+    }
+
+    public function test_switching_to_a_status_tab_clears_the_status_filter(): void
+    {
+        $this->actingAs($this->makeUser('manager', ['ViewAny:EquipmentResource', 'ViewEquipmentList:EquipmentResource']));
+        $deployed = Equipment::factory()->equipment()->create(['lifecycle_status_id' => 'dep']);
+        Filament::setCurrentResourceConfigurationKey('equipment');
+
+        Livewire::test(ListEquipment::class)
+            ->filterTable('lifecycle_status_id', 'ret')
+            ->assertCanNotSeeTableRecords([$deployed])
+            ->set('activeTab', 'deployed')
+            ->assertCanSeeTableRecords([$deployed])
+            ->assertSet('tableFilters.lifecycle_status_id.value', null)
+            // Back on All, the old Retired choice is not applied again.
+            ->set('activeTab', 'all')
+            ->assertCanSeeTableRecords([$deployed]);
+    }
+
     public function test_asset_list_tab_counts_follow_the_equipment_accessories_and_service_vehicle_pages(): void
     {
         $this->actingAs($this->makeUser('manager', [

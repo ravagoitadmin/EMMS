@@ -122,7 +122,7 @@ class EquipmentsRelationManager extends RelationManager
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('lifecycleStatus.status_title')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->toggleable()
                     ->sortable()
                     ->badge()
@@ -136,7 +136,7 @@ class EquipmentsRelationManager extends RelationManager
             ])
             ->filters([
                 SelectFilter::make('lifecycle_status_id')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->options(fn (): array => Status::lifecycleOptions()),
             ])
             ->recordUrl(fn (Equipment $record): string => EquipmentResource::getUrl('view', ['record' => $record]))

@@ -58,7 +58,7 @@ class AssetReport extends ReportPage
                     ->placeholder('—')
                     ->sortable(),
                 TextColumn::make('lifecycleStatus.status_title')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->badge()
                     ->color(fn (Equipment $record): ?string => $record->lifecycleStatus?->status_color)
                     ->placeholder('—')
@@ -74,7 +74,7 @@ class AssetReport extends ReportPage
                     ->label('Asset Type')
                     ->relationship('assetType', 'name'),
                 SelectFilter::make('lifecycle_status_id')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->options(fn (): array => Status::lifecycleOptions()),
             ])
             ->recordUrl(fn (Equipment $record): ?string => Auth::user()?->can('view', $record)

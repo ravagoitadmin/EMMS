@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Equipment\Tables;
 
 use App\Filament\Resources\Equipment\EquipmentResource;
+use App\Filament\Resources\Equipment\Pages\ListEquipment;
 use App\Models\AssetType;
 use App\Models\Equipment;
 use App\Models\Status;
@@ -32,6 +33,15 @@ class EquipmentTable
     private static function assetTypeOptions(): array
     {
         return self::$assetTypeOptions ??= AssetType::query()->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    /**
+     * Whether the list shows assets of every status: the All tab (or a page without status tabs). The Deployed,
+     * Available, ... tabs show one status each, so they do not need the Status column and filter.
+     */
+    public static function showsEveryStatus(mixed $livewire): bool
+    {
+        return ! $livewire instanceof ListEquipment || in_array($livewire->activeTab, [null, '', ListEquipment::ALL_TAB], true);
     }
 
     public static function configure(Table $table): Table
@@ -96,12 +106,15 @@ class EquipmentTable
                         fn (): bool => in_array(EquipmentResource::getConfiguration()?->getKey(), ['assets', 'accessories'], true)
                     ),
                 TextColumn::make('lifecycleStatus.status_title')
-                    ->label('Lifecycle Status')
+                    ->label('Status')
                     ->toggleable()
                     ->sortable()
                     ->badge()
-                    ->icon(fn ($record) => $record->lifecycleStatus->status_icon)
-                    ->color(fn ($record) => $record->lifecycleStatus->status_color),
+                    ->icon(fn ($record) => $record->lifecycleStatus?->status_icon)
+                    ->color(fn ($record) => $record->lifecycleStatus?->status_color)
+                    ->placeholder('—')
+                    // A status tab (Deployed, Available, ...) already shows one status, so the column only shows on All.
+                    ->visible(fn ($livewire): bool => self::showsEveryStatus($livewire)),
                 TextColumn::make('location.name')
                     ->label('Location')
                     // Allocated accessories show their parent equipment's location.
@@ -114,8 +127,9 @@ class EquipmentTable
             // ->defaultSort('eqm_name', 'asc')
             ->filters([
                 SelectFilter::make('lifecycle_status_id')
-                    ->label('Lifecycle Status')
-                    ->options(fn (): array => Status::lifecycleOptions()),
+                    ->label('Status')
+                    ->options(fn (): array => Status::lifecycleOptions())
+                    ->visible(fn ($livewire): bool => self::showsEveryStatus($livewire)),
                 SelectFilter::make('asset_type_id')
                     ->label('Asset Type')
                     ->relationship('assetType', 'name'),

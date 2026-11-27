@@ -29,7 +29,7 @@ class EquipmentInfolist
                                     ->label('Equipment Name')
                                     ->columnSpanFull(),
                                 TextEntry::make('lifecycleStatus.status_title')
-                                    ->label('Lifecycle Status')
+                                    ->label('Status')
                                     ->badge()
                                     ->color(fn ($record): ?string => $record->lifecycleStatus?->status_color)
                                     ->icon(fn ($record): ?string => $record->lifecycleStatus?->status_icon)
