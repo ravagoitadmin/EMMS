@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -27,70 +28,76 @@ class EquipmentInfolist
                     ->icon('heroicon-o-cube')
                     ->columns(['default' => 1, 'xl' => 2])
                     ->inlineLabel()
+                    // Two columns from xl up, each read top to bottom: 1-7 on the left, then 8-14 on the right.
+                    // On smaller screens the left column stacks above the right one, so the order stays 1-14.
                     ->schema([
-                        TextEntry::make('eqm_name')
-                            ->label('Asset Name'),
-                        TextEntry::make('eqm_prc_code')
-                            ->label('Asset Code'),
-                        TextEntry::make('eqm_is_active')
-                            ->label('Status')
-                            ->badge()
-                            ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')
-                            ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
-                        TextEntry::make('assetType.name')
-                            ->label('Asset Type')
-                            ->placeholder('—'),
-                        TextEntry::make('lifecycleStatus.status_title')
-                            ->label('Lifecycle Status')
-                            ->badge()
-                            ->color(fn (Equipment $record) => $record->lifecycleStatus?->status_color)
-                            ->icon(fn (Equipment $record) => $record->lifecycleStatus?->status_icon)
-                            ->placeholder('—'),
-                        TextEntry::make('location.full_path')
-                            ->label('Location')
-                            // Allocated accessories show their parent equipment's location.
-                            ->state(fn (Equipment $record): ?string => $record->effectiveLocation()?->full_path)
-                            ->helperText(fn (Equipment $record): ?string => $record->isAllocatedAccessory()
-                                ? "Inherited from {$record->parent?->eqm_name}"
-                                : null)
-                            ->placeholder('—'),
-                        TextEntry::make('parent.eqm_name')
-                            ->label('Allocated to')
-                            ->visible(fn (Equipment $record): bool => $record->isAccessory())
-                            ->url(fn (Equipment $record): ?string => $record->parent_id
-                                ? EquipmentResource::getUrl('view', ['record' => $record->parent_id], configuration: 'equipment')
-                                : null)
-                            ->placeholder('Unallocated'),
-                        TextEntry::make('brand.eqmb_name')
-                            ->label('Brand')
-                            ->placeholder('—'),
-                        TextEntry::make('equipmentModel.eqmm_name')
-                            ->label('Model')
-                            ->placeholder('—'),
-                        TextEntry::make('type.eqmt_name')
-                            // "Asset Type" is equipment vs accessory; this is the kind of machine.
-                            ->label('Equipment Type')
-                            ->url(fn (Equipment $record): ?string => $record->eqm_eqmt_id
-                                ? EquipmentTypeResource::getUrl('view', ['record' => $record->eqm_eqmt_id])
-                                : null)
-                            ->placeholder('—'),
-                        TextEntry::make('year_model')
-                            ->label('Year Model')
-                            ->placeholder('—'),
-                        TextEntry::make('eqm_plate_num')
-                            ->label('Plate Number')
-                            ->placeholder('—'),
-                        TextEntry::make('eqm_chassis_no')
-                            ->label('Chassis #')
-                            ->placeholder('—'),
-                        TextEntry::make('eqm_date_purchased')
-                            ->label('Date Purchased')
-                            ->date('M d, Y')
-                            ->placeholder('—'),
-                        ViewEntry::make('categories')
-                            ->label('Tags')
-                            ->view('filament.infolists.entries.category-badges')
-                            ->inlineLabel(),
+                        Group::make([
+                            TextEntry::make('eqm_prc_code')
+                                ->label('Asset Code'),
+                            TextEntry::make('eqm_name')
+                                ->label('Asset Name'),
+                            TextEntry::make('eqm_is_active')
+                                ->label('Status')
+                                ->badge()
+                                ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')
+                                ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
+                            TextEntry::make('lifecycleStatus.status_title')
+                                ->label('Lifecycle Status')
+                                ->badge()
+                                ->color(fn (Equipment $record) => $record->lifecycleStatus?->status_color)
+                                ->icon(fn (Equipment $record) => $record->lifecycleStatus?->status_icon)
+                                ->placeholder('—'),
+                            TextEntry::make('assetType.name')
+                                ->label('Asset Type')
+                                ->placeholder('—'),
+                            TextEntry::make('type.eqmt_name')
+                                // "Asset Type" is equipment vs accessory; this is the kind of machine.
+                                ->label('Equipment Type')
+                                ->url(fn (Equipment $record): ?string => $record->eqm_eqmt_id
+                                    ? EquipmentTypeResource::getUrl('view', ['record' => $record->eqm_eqmt_id])
+                                    : null)
+                                ->placeholder('—'),
+                            TextEntry::make('brand.eqmb_name')
+                                ->label('Brand')
+                                ->placeholder('—'),
+                        ]),
+                        Group::make([
+                            TextEntry::make('equipmentModel.eqmm_name')
+                                ->label('Model')
+                                ->placeholder('—'),
+                            TextEntry::make('year_model')
+                                ->label('Year Model')
+                                ->placeholder('—'),
+                            TextEntry::make('eqm_date_purchased')
+                                ->label('Date Purchased')
+                                ->date('M d, Y')
+                                ->placeholder('—'),
+                            TextEntry::make('eqm_plate_num')
+                                ->label('Plate Number')
+                                ->placeholder('—'),
+                            TextEntry::make('eqm_chassis_no')
+                                ->label('Chassis #')
+                                ->placeholder('—'),
+                            TextEntry::make('location.full_path')
+                                ->label('Location')
+                                // Allocated accessories show their parent equipment's location.
+                                ->state(fn (Equipment $record): ?string => $record->effectiveLocation()?->full_path)
+                                ->helperText(fn (Equipment $record): ?string => $record->isAllocatedAccessory()
+                                    ? "Inherited from {$record->parent?->eqm_name}"
+                                    : null)
+                                ->placeholder('—'),
+                            TextEntry::make('parent.eqm_name')
+                                ->label('Allocated to')
+                                ->visible(fn (Equipment $record): bool => $record->isAccessory())
+                                ->url(fn (Equipment $record): ?string => $record->parent_id
+                                    ? EquipmentResource::getUrl('view', ['record' => $record->parent_id], configuration: 'equipment')
+                                    : null)
+                                ->placeholder('Unallocated'),
+                            ViewEntry::make('categories')
+                                ->label('Tags')
+                                ->view('filament.infolists.entries.category-badges')
+                                ->inlineLabel(),
+                        ]),
                     ]),
 
                 Grid::make(['default' => 1, 'xl' => 2])
