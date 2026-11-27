@@ -21,6 +21,10 @@ Route::get('/manifest.webmanifest', PwaManifestController::class)->name('pwa.man
 Route::get('/auth/google', [SocialiteController::class, 'redirectToGoogle'])
     ->name('auth.google')
     ->middleware('throttle:google-auth');
+// One-time link for the work order mailbox account (WORK_ORDER_GMAIL_ACCOUNT) to give EMS access to its Gmail.
+Route::get('/auth/google/mailbox', [SocialiteController::class, 'redirectToGoogleMailbox'])
+    ->name('auth.google.mailbox')
+    ->middleware('throttle:google-auth');
 Route::get('/auth/google/callback', [SocialiteController::class, 'handleGoogleCallback'])
     ->name('auth.google.callback')
     ->middleware('throttle:google-auth');

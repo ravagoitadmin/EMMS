@@ -15,18 +15,42 @@ use Laravel\Socialite\Two\GoogleProvider;
 
 class SocialiteController extends Controller
 {
+    /** Set while the work order mailbox account is connecting its Gmail (see redirectToGoogleMailbox). */
+    private const MAILBOX_CONNECT_SESSION_KEY = 'google_mailbox_connect';
+
+    /**
+     * Normal sign-in: only the name, email and photo (Socialite's default openid, profile and email scopes), so
+     * Google asks for consent once and does not show its permission screens on every login.
+     */
     public function redirectToGoogle()
     {
+        session()->forget(self::MAILBOX_CONNECT_SESSION_KEY);
+
+        /** @var GoogleProvider $googleProvider */
+        $googleProvider = Socialite::driver('google');
+
+        return $googleProvider->redirect();
+    }
+
+    /**
+     * One-time link for the work order mailbox account (WORK_ORDER_GMAIL_ACCOUNT): signs in and grants EMS offline
+     * access to its Gmail, so work-orders:sync-google-replies can read the replies. Only that account's token is kept.
+     */
+    public function redirectToGoogleMailbox()
+    {
+        session()->put(self::MAILBOX_CONNECT_SESSION_KEY, true);
+
         /** @var GoogleProvider $googleProvider */
         $googleProvider = Socialite::driver('google');
 
         return $googleProvider
             ->scopes(config('work_orders.google_scopes'))
-            ->with([
+            ->with(array_filter([
                 'access_type' => 'offline',
                 'prompt' => 'consent',
                 'include_granted_scopes' => 'true',
-            ])
+                'login_hint' => config('work_orders.gmail_account_email'),
+            ]))
             ->redirect();
     }
 
@@ -156,6 +180,8 @@ class SocialiteController extends Controller
             return redirect('/login');
         }
 
+        $connectingMailbox = (bool) session()->pull(self::MAILBOX_CONNECT_SESSION_KEY, false);
+
         try {
             $googleUser = Socialite::driver('google')->user();
             $email = $googleUser->getEmail();
@@ -194,18 +220,25 @@ class SocialiteController extends Controller
                 return redirect('/login');
             }
 
-            $tokenData = [
-                'google_access_token' => $googleUser->token,
-                'google_token_expires_at' => $googleUser->expiresIn
-                    ? now()->addSeconds((int) $googleUser->expiresIn)
-                    : null,
-            ];
+            // Gmail tokens are kept only for the work order mailbox, and only when it signed in through the mailbox
+            // link. A normal sign-in carries no Gmail access, so it must not overwrite the mailbox's working token.
+            $mailboxEmail = strtolower(trim((string) config('work_orders.gmail_account_email')));
+            $mailboxConnected = $connectingMailbox && $mailboxEmail !== '' && strtolower((string) $email) === $mailboxEmail;
 
-            if ($googleUser->refreshToken) {
-                $tokenData['google_refresh_token'] = $googleUser->refreshToken;
+            if ($mailboxConnected) {
+                $tokenData = [
+                    'google_access_token' => $googleUser->token,
+                    'google_token_expires_at' => $googleUser->expiresIn
+                        ? now()->addSeconds((int) $googleUser->expiresIn)
+                        : null,
+                ];
+
+                if ($googleUser->refreshToken) {
+                    $tokenData['google_refresh_token'] = $googleUser->refreshToken;
+                }
+
+                $appUser->forceFill($tokenData)->save();
             }
-
-            $appUser->forceFill($tokenData)->save();
 
             // Save/update avatar from Google
             if ($googleUser->getAvatar() && $appUser->user_avatar !== $googleUser->getAvatar()) {
@@ -227,6 +260,21 @@ class SocialiteController extends Controller
                 ->body("Hello {$appUser->getFilamentName()}")
                 ->success()
                 ->send();
+
+            if ($mailboxConnected) {
+                Notification::make()
+                    ->title('Gmail connected')
+                    ->body('EMS can now read the work order replies in this mailbox.')
+                    ->success()
+                    ->send();
+            } elseif ($connectingMailbox) {
+                Notification::make()
+                    ->title('Gmail was not connected')
+                    ->body('Only the work order mailbox account ('.($mailboxEmail ?: 'not set').') can connect its Gmail.')
+                    ->warning()
+                    ->persistent()
+                    ->send();
+            }
 
             return redirect()->intended(Filament::getPanel('admin')->getUrl());
         } catch (\Exception $e) {
