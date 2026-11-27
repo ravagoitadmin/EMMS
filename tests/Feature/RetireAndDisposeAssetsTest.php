@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\LifecycleStatus;
+use App\Filament\Resources\Equipment\EquipmentResource;
 use App\Filament\Resources\Equipment\Pages\ViewEquipment;
 use App\Models\Action as ModelsAction;
 use App\Models\AppUser;
@@ -110,8 +111,11 @@ class RetireAndDisposeAssetsTest extends TestCase
 
         // The new rows and permissions come from the migrations themselves.
         (require base_path('database/migrations/2026_11_27_105934_add_retired_and_disposed_lifecycle_statuses.php'))->up();
-        DB::table('roles')->insert(['name' => 'asset_admin', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()]);
+        foreach (['super_admin', 'asset_admin', 'asset_manager', 'manager'] as $role) {
+            DB::table('roles')->insert(['name' => $role, 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()]);
+        }
         (require base_path('database/migrations/2026_11_27_105936_add_retire_and_dispose_permissions_to_equipment.php'))->up();
+        (require base_path('database/migrations/2026_11_27_114510_grant_retire_and_dispose_to_asset_admin_and_asset_manager_only.php'))->up();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         AssetType::flushIdCache();
@@ -142,6 +146,28 @@ class RetireAndDisposeAssetsTest extends TestCase
         $this->assertSame(['dispose', 'retire'], ModelsAction::query()->whereIn('a_id', ['retire', 'dispose'])->orderBy('a_id')->pluck('a_id')->all());
         $this->assertTrue($this->user->can('Retire:EquipmentResource'));
         $this->assertTrue($this->user->can('Dispose:EquipmentResource'));
+    }
+
+    public function test_by_default_only_asset_admin_and_asset_manager_can_retire_and_dispose(): void
+    {
+        $holders = fn (string $permission): array => DB::table('role_has_permissions')
+            ->join('roles', 'roles.id', '=', 'role_has_permissions.role_id')
+            ->join('permissions', 'permissions.id', '=', 'role_has_permissions.permission_id')
+            ->where('permissions.name', $permission)
+            ->orderBy('roles.name')
+            ->pluck('roles.name')
+            ->all();
+
+        $this->assertSame(['asset_admin', 'asset_manager'], $holders('Retire:EquipmentResource'));
+        $this->assertSame(['asset_admin', 'asset_manager'], $holders('Dispose:EquipmentResource'));
+    }
+
+    public function test_the_roles_screen_lists_retire_and_dispose_for_the_equipment_resource(): void
+    {
+        $manage = config('filament-shield.resources.manage')[EquipmentResource::class];
+
+        $this->assertContains('retire', $manage);
+        $this->assertContains('dispose', $manage);
     }
 
     public function test_the_lifecycle_filter_lists_only_lifecycle_statuses_in_order(): void
