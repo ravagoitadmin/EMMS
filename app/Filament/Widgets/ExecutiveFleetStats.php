@@ -49,11 +49,11 @@ class ExecutiveFleetStats extends StatsOverviewWidget
             Stat::make('Total assets', $total)
                 ->icon(Heroicon::CubeTransparent)
                 ->description(($total - $outOfService).' in service, '.$outOfService.' retired or disposed')
-                ->color('primary'),
+                ->color('gray'),
             Stat::make('Deployed', (int) ($row->deployed ?? 0))
                 ->icon(Heroicon::Truck)
                 ->description($share((int) ($row->deployed ?? 0)))
-                ->color('success'),
+                ->color('primary'),
             Stat::make('Under maintenance', (int) ($row->maintenance ?? 0))
                 ->icon(Heroicon::WrenchScrewdriver)
                 ->description($share((int) ($row->maintenance ?? 0)))
@@ -61,7 +61,7 @@ class ExecutiveFleetStats extends StatsOverviewWidget
             Stat::make('Idle', (int) ($row->idle ?? 0))
                 ->icon(Heroicon::PauseCircle)
                 ->description($share((int) ($row->idle ?? 0)))
-                ->color('gray'),
+                ->color('success'),
         ];
     }
 }

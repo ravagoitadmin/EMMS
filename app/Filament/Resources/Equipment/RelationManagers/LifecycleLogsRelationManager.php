@@ -79,8 +79,8 @@ class LifecycleLogsRelationManager extends RelationManager
                             ->label('Action')
                             ->badge()
                             ->color(fn ($record) => match ($record->action_id) {
-                                'dep', 'alc' => 'success',
-                                'sidle' => 'danger',
+                                'dep', 'alc' => 'primary',
+                                'sidle' => 'success',
                                 'smt' => 'warning',
                                 'dispose' => 'danger',
                                 default => 'gray',
@@ -129,8 +129,8 @@ class LifecycleLogsRelationManager extends RelationManager
                     ->label('Action')
                     ->badge()
                     ->color(fn ($record) => match ($record->action_id) {
-                        'dep', 'alc' => 'success',
-                        'sidle' => 'danger',
+                        'dep', 'alc' => 'primary',
+                        'sidle' => 'success',
                         'smt' => 'warning',
                         'dispose' => 'danger',
                         default => 'gray',
